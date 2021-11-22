@@ -406,10 +406,19 @@ def run_perceptron(df, ticker=None, n_try=200):
 #     if model_name == 'perceptron':
 
 # wknn
-class wknn:
-    def agg_weights(labels, weights):
-        tmp = pd.DataFrame({'labels': labels, 'weights': weights})
-        scores = tmp.groupBy('labels').sum().reset_index()
+class WKNN:
+    def __init__(self, data, k=5):
+        import pandas as pd
+        import math
+        from tqdm import tqdm
+        self._pd = pd
+        self._math = math
+        self._tqdm = tqdm
+        self.data = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
+        self.k = k
+        
+    def agg_weights(self):
+        scores = self.data.groupBy('labels').sum().reset_index()
         # id of the max score
         max_score_indice = scores['weights'].idxmax()
         # label of the max score
@@ -417,22 +426,31 @@ class wknn:
         return predict_label
 
     # Calculate the Euclidian Distance
-    def euclidian_distance(x, y):
-        return math.sqrt((x - y).pow(2).sum())
+    def euclidian_distance(self, x, y):
+        return self._math.sqrt((x - y).pow(2).sum())
 
-    def wknn(data, rotulo, k, test, task='r'):
-        # Calculate the distance of test and all elements of data train
-        dists = data.apply(euclidian_distance, args=(test,), axis=1)
-        # relation between distances and weights
-        proximities = 1/dists
-        
-        k_nearest_indices = [x[0] for x in sorted(zip(dists.index, dists), key=lambda x: x[1])[:k]]
-        candidates = rotulo.loc[k_nearest_indices]
-        weights = proximities.loc[k_nearest_indices]
-        
-        if task == 'c':
-            return agg_weights(candidates, weights)
-        return candidates.mean()
+    def fit(self, data_test, task='r', debug=True, all_columns_df=False):
+        tsk = 'r' if self.data['y'].dtypes == 'float64' else task
+        if isinstance(data_test, self._pd.Series): data_test = data_test.to_frame().T
+        result = {'y_real': [], 'y_predict': []}
+        for i in (range(data_test.shape[0]) if not debug else self._tqdm(range(data_test.shape[0]))):
+            x_test = data_test.iloc[i]
+            # Store the real (test) value
+            result['y_real'] += [x_test['y']]
+            # Calculate the distance of test and all elements of data train
+            dists = self.data.apply(self.euclidian_distance, args=(x_test,), axis=1)
+            # relation between distances and weights
+            proximities = 1/dists
+            # Sort k distances
+            k_nearest_indices = dists.sort_values().iloc[:self.k].index
+            candidates = self.data['y'].loc[k_nearest_indices]
+            weights = proximities.loc[k_nearest_indices]
+            result['y_predict'] += [candidates.mean()] if tsk == 'r' else [self.agg_weights(candidates, weights)]
+        if all_columns_df:
+            self.results = pd.DataFrame({**{x: data_test[x] for x in data_test.columns}, **result})
+        else: # Only two new columns
+            self.results = pd.DataFrame({**{'original_index': data_test.index}, **result})
+        return self.results
 
 def get_polyfit_trend(serie, index, deg=1):
     """
