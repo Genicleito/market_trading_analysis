@@ -243,7 +243,7 @@ series_to_supervised_task = PythonOperator(
     op_kwargs={'read_path': history_path, 'write_path': series_to_supervised_path}
 )
 
-if now().hour >= 19:
+if now().hour >= 19 and now().hour <= 6:
     train_model_task = PythonOperator(
         dag=dag,
         task_id=f'train_model',
