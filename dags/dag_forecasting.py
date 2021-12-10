@@ -1,10 +1,10 @@
 import os, sys, inspect
-home_path = f"{os.environ.get('HOME')}"
 currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0, currentdir)
-# # sys.path.insert(0, parentdir)
-sys.path.insert(0, f'{home_path}/libs')
+sys.path.insert(0, parentdir)
+home_path = parentdir
+sys.path.insert(0, f'{home_path}/lib')
 
 # Airflow
 from airflow import DAG
