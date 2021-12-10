@@ -6,128 +6,61 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from IPython import display
-import schedule
+import logging
 import time
 import os
 import math
+import urllib3
 # http://www.b3.com.br/pt_br/market-data-e-indices/servicos-de-dados/market-data/cotacoes/cotacoes/
 
 today = datetime.datetime.today()
 limit_time = 1730
-pool = ThreadPool(4)
+ncores = os.cpu_count()
+http = urllib3.PoolManager()
 yahoo_api_path = 'https://query1.finance.yahoo.com/v7/finance/download/'
+now = lambda: datetime.datetime.now()
 default_yahoo_df_columns = ['date', 'ticker', 'open', 'high', 'low', 'close', 'adj_close', 'volume']
+_PERIODS_EMA = [8, 20, 72, 200]
+_DEBUG = True
 
 _PERIOD1 = 946695600 # 2000-01-01
 _PERIOD2 = int(datetime.datetime(year=today.year, month=today.month, day=today.day, hour=today.hour, minute=today.minute, second=today.second, microsecond=today.microsecond).timestamp())
+
+_hist_path = 'hist_market_trading_yfinance.csv.zip'
+
+def create_pool():
+    return ThreadPool(max(ncores//2), 1)
 
 def updated_period2_to_now():
     now = datetime.datetime.today()
     return int(datetime.datetime(year=now.year, month=now.month, day=now.day, hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond).timestamp())
 
 main_codes = [
-    'CEAB3', 'OIBR3', 'EMBR3', 'VALE3', 'GOLL4', 'COGN3', 'IRBR3', 'HGTX3', 'ABEV3', 'BBDC4', 'VULC3', 'SUZB3', 
-    'ALSO3', 'AZUL4', 'QUAL3', 'CNTO3', 'SEER3', 'DMMO3', 'BMGB4', 'ECOR3', 'TOTS3', 'LINX3', 'LLIS3', 'ITUB4', 
-    'LREN3', 'GGBR4', 'USIM5', 'MRFG3', 'RENT3', 'MOVI3', 'VIVA3', 'ARZZ3', 'ETER3', 'BRKM5', 'BKBR3', 'PFRM3', 
-    'SOMA3', 'ABCB4', 'AMAR3', 'ANIM3', 'BPAN4', 'BRPR3', 'PETR4', 'SAPR3', 'MEAL3', 'TEND3', 'CIEL3', 'MILS3', 
-    'CCRO3', 'BEEF3', 'MGLU3', 'BIDI4', 'BBAS3', 'WEGE3', 'CYRE3', 'JHSF3', 'KLBN11', 'SHOW3', 'MRVE3', 'CSAN3', 
-    'NTCO3', 'LAME4', 'MDNE3', 'SAPR11', 'JBSS3', 'BRFS3', 'BRML3', 'CSNA3', 'ELET3', 'CMIG4', 'PDGR3', 'LPSB3', 
-    'RLOG3', 'PRNR3', 'EZTC3', 'BRDT3', 'ENAT3', 'DMVF3', 'GUAR3', 'SBSP3', 'RANI3', 'LWSA3', 'SAPR4', 'CAML3', 
-    'GRND3', 'AGRO3', 'CRFB3', 'LAVV3', 'PGMN3', 'SMTO3', 'MYPK3', 'POMO4', 'STBP3', 'PETZ3', 'ITSA4', 'PTBL3',
-    'ENJU3', 'AERI3', 'GMAT3', 'SMLS3', 'CRFB3', 'VVAR3', 'RAPT4'
+    'CEAB3', 'OIBR3', 'EMBR3', 'VALE3', 'GOLL4', 'COGN3', 'IRBR3', 'ABEV3', 'BBDC4', 'VULC3', 'SUZB3', 'ALSO3', 'AZUL4', 'QUAL3', 'SEER3',
+    'DMMO3', 'BMGB4', 'ECOR3', 'TOTS3', 'LLIS3', 'ITUB4', 'LREN3', 'GGBR4', 'USIM5', 'MRFG3', 'RENT3', 'MOVI3', 'VIVA3', 'ARZZ3', 'ETER3',
+    'BRKM5', 'BKBR3', 'PFRM3', 'SOMA3', 'ABCB4', 'AMAR3', 'ANIM3', 'BPAN4', 'BRPR3', 'PETR4', 'SAPR3', 'MEAL3', 'TEND3', 'CIEL3', 'MILS3',
+    'CCRO3', 'BEEF3', 'MGLU3', 'BIDI4', 'BBAS3', 'WEGE3', 'CYRE3', 'JHSF3', 'KLBN11', 'SHOW3', 'MRVE3', 'CSAN3', 'NTCO3', 'LAME4', 'MDNE3',
+    'SAPR11', 'JBSS3', 'BRFS3', 'BRML3', 'CSNA3', 'ELET3', 'CMIG4', 'PDGR3', 'LPSB3', 'PRNR3', 'EZTC3', 'BRDT3', 'ENAT3', 'DMVF3', 'GUAR3',
+    'SBSP3', 'RANI3', 'LWSA3', 'SAPR4', 'CAML3', 'GRND3', 'AGRO3', 'CRFB3', 'LAVV3', 'PGMN3', 'SMTO3', 'MYPK3', 'POMO4', 'STBP3', 'PETZ3',
+    'ITSA4', 'PTBL3', 'ENJU3', 'AERI3', 'GMAT3', 'CRFB3', 'RAPT4', 'CXSE3', 'VIIA3'
 ]
-main_codes = [x + "F" for x in main_codes] + main_codes
 
 another_codes = [
-    'PINE4F', 'GGBR3', 'TPRY34', 'RBVA11', 'AZEV3F', 'DI1F28', 'BEES3', 'SQIA3F', 'CIEL3', 'PETR3F', 'LIGT3F', 
-    'TEKA4F', 'ALUP11', 'LREN3F', 'PETRV95', 'PNVL3F', 'RNGO11', 'ENAT3', 'AALR3', 'IBOVX93', 'DI1N21', 'GOLL11', 
-    'ELET6', 'DISB34', 'TAEE11F', 'SAPR4F', 'BEEF3F', 'DI1J22', 'BBRC11', 'SLCE3F', 'DMMO11F', 'TASA17F', 'LJQQ3F', 
-    'PETRJ20', 'VGIR11', 'MCCI11', 'GSFI11', 'MMXM11', 'COCA34', 'ENGI11', 'ELET3F', 'EVEN3', 'TXRX3F', 'A1PA34', 
-    'LOGG3F', 'SUZB3F', 'PARD3F', 'VALEOV20', 'JBSSK21', 'SANB11', 'AMBP3F', 'LVBI11', 'SHOW3', 'DI1U21', 'AFCR11', 
-    'DI1F21', 'GUAR3', 'BPAN4', 'WHRL3F', 'CCPR3F', 'SIMH3', 'MYPK3', 'ARZZ3', 'GOAU4F', 'SULA11F', 'HBSA3F', 
-    'FIIB11', 'SANB3F', 'CTSA4', 'VULC3', 'RFOF11', 'TORD11', 'DI1V21', 'TASA4F', 'VALEX33', 'DI1J23', 'MMXM3', 
-    'PRIO3F', 'STBP3F', 'HAPV3F', 'KEPL3F', 'RANI4', 'ESTR4', 'BIDI11', 'LWSA3', 'CESP6F', 'PETRW43', 'EZTC3', 
-    'PETRV80', 'BBAS3', 'VIVA3', 'BMGB4', 'FRCF23', 'FRP0', 'CVCB3', 'BRFS3', 'OUJP11', 'LUPA3', 'WINV20', 'AMBP3', 
-    'GGBR4F', 'TOTS3', 'HGTX3F', 'JBSSL25', 'ENBR3', 'CTNM4', 'PVBI11', 'MOVI3F', 'MRFG3F', 'RADL3', 'IRBRA35', 
-    'PETZ3F', 'TASA3F', 'LGCP11', 'FLMA11', 'RBRL11', 'WIZS3F', 'VIVR3F', 'ALSO3', 'TIET3F', 'POMO4', 'SULA3', 
-    'MRVE3', 'IBOVK97', 'MDIA3', 'KLBN4F', 'DOHL4', 'DI1F22', 'CURY3F', 'BOBR4', 'MATB11', 'DI1K21', 'LINX3F', 
-    'AMAR3F', 'NSLU11', 'PDGR3', 'BRCO11', 'DMVF3F', 'CPLE6', 'PETRK27', 'SAPR3', 'SEER3', 'BRIV4', 'HLOG11', 
-    'ALPA3F', 'EURO11', 'ALSO3F', 'RAIL3F', 'TAEE3F', 'KLBN3', 'CGRA3F', 'CIELOV20', 'PARD3', 'TGMA3F', 'BIOM3F', 
-    'FLRY3', 'TIET4F', 'FHER3', 'BBPO11', 'DTEX3', 'PETRM21', 'RCSL4F', 'GBRX20', 'EZTC3F', 'OIBR4F', 'VULC3F', 
-    'ISPZ20', 'MTSA4F', 'CEOC11', 'VIVT4', 'EQTL3F', 'SNSY5F', 'DI1Q21', 'CVCB11', 'PETZ3', 'GEOO34', 'TEPP11', 
-    'BCSA34', 'SCAR3F', 'RSID3F', 'CESP6', 'EQPA3F', 'SHPH11', 'POSI3F', 'DIVO11', 'TEKA3', 'JPMC34', 'PFRM3F', 
-    'FSRF11', 'EUPX20', 'BEES3F', 'DI1F25', 'IFRA11', 'TCNO3', 'JPSA3', 'FNAM11', 'DIRR3F', 'XPCM11', 'CMIG4F', 
-    'BIDI3', 'VGIP11', 'LUXM4F', 'CNTO3', 'WHRL4F', 'HABT11', 'JAPX20', 'BCIA11', 'LAVV3', 'CVCB3F', 'EMBR3F', 
-    'DTEX3F', 'CAML3', 'RECR11', 'ITUBB21', 'DI1F26', 'VINO11', 'ABCB4', 'LLIS3', 'MFII11', 'IDVL4F', 'SANB11F', 
-    'ITUB3F', 'CURY3', 'BRAP4', 'ODPV3', 'GOAU4', 'TECN3', 'TASA13', 'IRBR3', 'BRPR3F', 'BRML3', 'SLBG34', 'GTWR11', 
-    'ENGI3', 'GOGL34', 'TCSA3F', 'STBP3', 'PRNR3F', 'SMTO3', 'MWET4', 'LAME3', 'YDUQ3', 'CPFE3', 'ARZZ3F', 'SGPS3', 
-    'BRKM5F', 'RPMG3F', 'BABA34', 'QAGR11', 'ARRI11', 'CSRN3F', 'PLRI11', 'WHRL4', 'PFIZ34', 'BRAP3', 'ITSA4', 
-    'EALT4', 'PETRJ80', 'EQTL3', 'LIGT3', 'TASA15F', 'TUPY3', 'SJCX20', 'THRA11', 'RENT3', 'HBSA3', 'HOSI11', 
-    'CEAB3', 'AALR3F', 'TCNO3F', 'TIET11F', 'SPTW11', 'SLED3F', 'CTSA3F', 'TXRX4F', 'MEXX20', 'KFOF11', 'SULA4F', 
-    'BRML3F', 'BPAC11F', 'VALE3', 'OIBR3F', 'FIVN11', 'DI1F31', 'EGIE3', 'BPAC5F', 'TIET11', 'ATSA11', 'LUPA3F', 
-    'PETRV17', 'BRFS3F', 'ALPA4', 'CGRA4F', 'HGCR11', 'SARE11', 'ELET3', 'JBDU3F', 'POMO3F', 'AURA32', 'CRDE3F', 
-    'GOGL35', 'GRLV11', 'BOAS3F', 'MGLU3', 'IBOVV93', 'TGAR11', 'DASA3F', 'MILS3F', 'XPSF11', 'SADI11', 'GOLL4', 
-    'TRIS3', 'AZEV3', 'UCAS3', 'NVDC34', 'BPAC11', 'HSML11', 'BRSR3F', 'PCAR3', 'TESA3F', 'BTOW3', 'XPPR11', 
-    'TASA15', 'CCMX20', 'MEAL3', 'SULA4', 'TAEE3', 'WSPZ20', 'LCAM3', 'BEEF11F', 'RLOG3', 'ONEF11', 'UGPA3', 
-    'WEGE3F', 'ANIM3', 'LAME3F', 'HYPE3', 'CPLE3F', 'SMTO3F', 'ABEV3F', 'WSPH21', 'HGLG11', 'VIVT3F', 'WIZS3', 
-    'B3SAOX20', 'RLOG3F', 'JBDU4', 'MNPR3', 'ROMI3F', 'JRDM11', 'HGBS11', 'VALE3F', 'BIDI4F', 'EGIE3F', 'IBOVX5', 
-    'IDVL3F', 'TAEE4F', 'SBSP3', 'MNDL3F', 'LINX3', 'LJQQ3', 'SAPR11F', 'DI1J21', 'EVEN3F', 'IVVB11', 'VLID3F', 
-    'KNIP11', 'ITUB3', 'CRPG5', 'CRFB3F', 'VCJR11', 'HSAF11', 'GPIV33', 'HBOR3F', 'MNDL3', 'RNEW4F', 'PETRV15', 
-    'MSFT34', 'PETRW46', 'CSNA3', 'RCSL3', 'RBDS11', 'IGTA3', 'SULA11', 'KEPL3', 'DMVF3', 'HBOR3', 'RENT3F', 
-    'ALUP11F', 'BOVAV77', 'ENEV3F', 'ICFZ20', 'HPQB34', 'PCAR3F', 'HCTR11', 'QUAL3F', 'IBOVL95', 'HAGA4', 'CVBI11', 
-    'ITSA4F', 'HGPO11', 'FIND11', 'BOVAV75', 'BBRK3', 'CMIGW94', 'CRPG5F', 'PETRJ22', 'OIBR3', 'PNVL4', 'KLBN3F', 
-    'T10Z20', 'BEEF11', 'BRKM5', 'TXRX4', 'EUPZ20', 'TAEE4', 'BRGE6F', 'ODPV3F', 'TGMA3', 'FESA4F', 'CEDO4F', 
-    'L1MN34', 'VIVT4F', 'VIVR1', 'CARE11', 'PETRP2', 'CRFB3', 'VILG11', 'TIET3', 'TASA4', 'TELB4F', 'A1MD34', 
-    'HAPV3', 'EXXO34', 'PTBL3', 'PLPL3F', 'ITSAJ99', 'EMBR3', 'SOND5F', 'TRIS3F', 'BGIZ20', 'XPML11', 'MULT3', 
-    'SMLS3F', 'IDVL4', 'JHSF3', 'CYRE3', 'CMIGV98', 'PSSA3F', 'UNIP5F', 'IBOVK98', 'BTLG12', 'DI1N22', 'BRSR6F', 
-    'LPSB3F', 'SAPR3F', 'LOGN3', 'AGRO3F', 'PATC11', 'QUAL3', 'FRIO3F', 'SUZB3', 'EALT4F', 'CEBR3F', 'AGRO3', 
-    'JSLG11', 'RCFA11', 'SAPR4', 'AMZO34', 'BOBR4F', 'POSI3', 'FHER3F', 'IBOVV92', 'PRIO3', 'TUPY3F', 'PETRV19', 
-    'BTLG11', 'DOLX20', 'TECN3F', 'LLIS3F', 'DI1M21', 'AZUL4F', 'SPXI11', 'TRXF11', 'PIBB11', 'ECOR3', 'HAGA4F', 
-    'TEXA34', 'WHRL3', 'BKBR3F', 'POMO4F', 'RECT11', 'EAIN34', 'UNIP3F', 'GRND3', 'CMIGV11', 'SLED4F', 'VOTS11', 
-    'LCAM3F', 'ETER3', 'BTOW3F', 'FEXC11', 'PETRK26', 'ABCB10F', 'WLMM3F', 'BOVV11', 'DMMO11', 'OUFF11', 'ENEV3', 
-    'GOLL4F', 'KNCR11', 'SOMA3', 'LAME4F', 'GOAU3F', 'DOLZ20', 'B3SA3', 'ALUP4', 'GEPA4F', 'VLOL11', 'SANB4F', 
-    'LWSA3F', 'USIM5', 'SLED4', 'DI1F23', 'BKBR3', 'UNIP6F', 'ITUB4', 'BEES4', 'SCPF11', 'BIDI3F', 'ABCB4F', 
-    'RCSL4', 'WPLZ11', 'BRDT3', 'EDGA11', 'DI1N24', 'SIMH3F', 'DI1V22', 'COGN3', 'BOVAL95', 'AUSX20', 'PPLA11', 
-    'MULT3F', 'ORCL34', 'DMAC11', 'CTXT11', 'RNDP11', 'ETER3F', 'INEP4', 'XTED11', 'BGIX20', 'CVCB11F', 'ADHM3F', 
-    'FVPQ11', 'CSAN3F', 'ENGI3F', 'GPCP3F', 'TAEE11', 'TCNO4', 'SLED3', 'AZUL4', 'FAED11', 'CAMB3', 'MDNE3F', 
-    'DI1N23', 'ITUB4F', 'IRDM11', 'VISC11', 'SBSP3F', 'SHUL4F', 'BPFF11', 'DI1X20', 'VALEW7', 'AFLT3F', 'ENGI4', 
-    'GRND3F', 'BSEV3', 'CCPR3', 'BPAN4F', 'BBSE3F', 'BOVAV63', 'CBOP11', 'PETRV16', 'NEOE3', 'BEES4F', 'KDIF11', 
-    'JHSF3F', 'IBOVW92', 'TOTS3F', 'RBIV11', 'VIFI11', 'JSRE11', 'DMMO3', 'TRNT11', 'BOVAV69', 'BBAS3F', 'CMIG4', 
-    'CSAN3', 'VIVA3F', 'ELET6F', 'HYPE3F', 'FRAS3F', 'MDIA3F', 'SMAL11', 'DI1F27', 'USIM3', 'GFSA3F', 'RBFF11', 
-    'FRCF31', 'OIBR4', 'FESA4', 'PETRV47', 'ATOM3F', 'BPAC3', 'VVAR3', 'HGRE11', 'SHUL4', 'RDPD11', 'RBRF11', 
-    'WDOX20', 'PETR4', 'BNBR3F', 'RBED11', 'LOGG3', 'BSLI3F', 'PLPL3', 'VVPR11', 'BCRI11', 'CTKA4F', 'RAPT4', 
-    'GNDI3F', 'CMIG3F', 'VVAR3F', 'DI1H21', 'PMAM3', 'PETR4F', 'MELK3', 'CNES11', 'TIET4', 'CTKA4', 'GOAU3', 
-    'LEVE3F', 'ALUP3F', 'CIEL3F', 'SMLS3', 'ROMI3', 'ALUP3', 'SANB3', 'DI1F24', 'NTCO3', 'ALPA4F', 'WLMM3', 
-    'IFIE11', 'CAML3F', 'URPR11', 'FBOK34', 'LREN3', 'AAPL34', 'ITSA3', 'MTRE3F', 'ITSA3F', 'JBSS3', 'RDSA34', 
-    'CPLE6F', 'SHOW3F', 'CYREV26', 'ENGI4F', 'PINE4', 'XPCI11', 'FNOR11', 'AMAR3', 'LAME4', 'CTSA3', 'HRDF11', 
-    'ECOO11', 'RAPT4F', 'GOVE11', 'VALEV34', 'CPFF11', 'TASA3', 'WINZ20', 'PNVL3', 'PETRJ19', 'MTRE3', 'PTBL3F', 
-    'RNEW11F', 'MMXM3F', 'SNSY5', 'ALZR11', 'TEND3F', 'FLRY3F', 'TIMP3F', 'MXRF11', 'PETR3', 'B3SA3F', 'TSLA34', 
-    'JBSS3F', 'IRBR3F', 'IGTA3F', 'ALUP4F', 'VIVR3', 'CARD3', 'TELB3', 'MEAL3F', 'VIVR1F', 'PORD11', 'SOMA3F', 
-    'CSMG3F', 'USIM5F', 'ATOM3', 'COGN3F', 'GGBR4', 'MILS3', 'CEBR6', 'PRNR3', 'PSSAOX20', 'ENBR3F', 'ANIM3F', 
-    'VALEOX20', 'PETRW47', 'KLBN4', 'PNVL4F', 'PDTC3F', 'RBRR11', 'RSID3', 'CARD3F', 'PSSA3', 'RANI4F', 'SLCE3', 
-    'MELK3F', 'LUGG11', 'XPIN11', 'RANI3', 'EMAE4F', 'ECOR3F', 'CSMG3', 'BOVB11', 'EUCA4', 'CCMF21', 'NTCO3F', 
-    'FRAS3', 'EUCA4F', 'SWIX20', 'JBDU3', 'JBDU4F', 'BRCR11', 'MALL11', 'PFRM3', 'MDNE3', 'UNIP3', 'PMAM3F', 
-    'FCFL11', 'PETRK23', 'ULEV34', 'RAPT3', 'OULG11', 'CCMK21', 'FSRF11F', 'KLBN11', 'VTLT11', 'DAPQ22', 
-    'RIGG34', 'ALPK3', 'RADL3F', 'JDCO34', 'APER3F', 'APER3', 'UGPA3F', 'TRPL4', 'A1AP34', 'MFAI11', 
-    'HGTX3', 'CGAS3F', 'TCSA3', 'XPLG11', 'VLID3', 'BRPR3', 'XPIE11', 'MGLU3F', 'BBRK3F', 'CEAB3F', 
-    'INDV20', 'BBVJ11', 'BPML11', 'LOGN3F', 'CHVX34', 'TESA3', 'BRSR6', 'MOVI3', 'FIGS11', 'GUAR3F', 
-    'CCMU21', 'MYPK3F', 'SAPR11', 'BBSE3', 'GILD34', 'KNRI11', 'YDUQ3F', 'ABEV3', 'BEEF3', 'MRVE3F', 
-    'DMMO3F', 'IMAB11', 'RBCO11', 'RBRY11', 'IBOVJ96', 'RBVO11', 'EURX20', 'HTMX11', 'PETRA22', 'OMGE3F', 
-    'GPCP3', 'BRAP4F', 'RNEW3F', 'UCAS3F', 'TRPL3', 'VIVT3', 'BOVAX85', 'BERK34', 'ENAT3F', 'CPFE3F', 
-    'RCSL3F', 'ISUS11', 'GFSA3', 'TRPL4F', 'BMGB4F', 'USIM3F', 'CPTS11', 'IBOVW89', 'MMXM11F', 'BARI11', 
-    'LEVE3', 'CANX20', 'WEGE3', 'MGFF11', 'IBFF11', 'ALPK3F', 'BIOM3', 'DIRR3', 'SEER3F', 'DI1F29', 'BBASJ35', 
-    'EMAE4', 'TPIS3F', 'HFOF11', 'GSHP3F', 'POMO3', 'TEKA4', 'BSEV3F', 'PGMN3F', 'CVSH34', 'GNDI3', 'RVBI11', 
-    'PATL11', 'RAPT3F', 'IBOVV97', 'MRFG3', 'PGMN3', 'SQIA3', 'CMIG3', 'CNTO3F', 'ENGI11F', 'RBRP11', 'UNIP6', 
-    'TRPL3F', 'CRPG6', 'CYRE3F', 'LPSB3', 'NCHB11', 'KLBN11F', 'BCFF11', 'TEND3', 'CPLE3', 'RBRD11', 'RANI3F', 
-    'SANB4', 'ABCP11', 'HGFF11', 'GOLL11F', 'NEOE3F', 'BPAC5', 'VRTA11', 'BAZA3F', 'CSNA3F', 'TCNO4F', 'PETRV18', 
-    'BOVA11', 'PYPL34', 'BTCR11', 'DI1G21', 'IGBR3', 'COCE5F', 'ASML34', 'BIDI4', 'BNFS11', 'BOAS3', 'BGIV20', 
-    'GFSAJ74', 'SMAC11', 'RCRB11', 'HGRU11', 'RDNI3', 'CEPE5F', 'IBOVW95', 'OMGE3', 'BIDI11F', 'SDIL11', 'TIMP3', 
-    'INEP3', 'TPIS3', 'CRIV3F', 'BRDT3F', 'IBOVW93', 'RAIL3', 'MELI34', 'AZEV4', 'PDTC3', 'ICFH21', 'JPSA3F', 'GGBR3F',
-    'ENJU3F', 'ENJU3', 'AERI3', 'AERI3F', 'GMAT3', 'GMAT3F', 'HBRE3', 'HBRE3F'
+    'CIEL3', 'ENAT3', 'MMXM11', 'SHOW3', 'GUAR3', 'BPAN4', 'MYPK3', 'ARZZ3', 'VULC3', 'ESTR4', 'LWSA3', 'EZTC3', 'BBAS3', 'VIVA3', 'BMGB4',
+    'BRFS3', 'TOTS3', 'ALSO3', 'POMO4', 'MRVE3', 'MDIA3', 'PDGR3', 'BRCO11', 'SAPR3', 'SEER3', 'PETZ3', 'LAVV3', 'CAML3', 'ABCB4', 'LLIS3',
+    'IRBR3', 'BRML3', 'SLBG34', 'STBP3', 'SMTO3', 'ITSA4', 'RENT3', 'CEAB3', 'VALE3', 'ELET3', 'MGLU3', 'GOLL4', 'MEAL3', 'UGPA3', 'ANIM3',
+    'WIZS3', 'SBSP3', 'CSNA3', 'DMVF3', 'OIBR3', 'BRKM5', 'CRFB3', 'PTBL3', 'EMBR3', 'JHSF3', 'CYRE3', 'QUAL3', 'SUZB3', 'AGRO3', 'SAPR4',
+    'ECOR3', 'GRND3', 'ETER3', 'SOMA3', 'USIM5', 'BKBR3', 'ITUB4', 'BRDT3', 'COGN3', 'AZUL4', 'VIFI11', 'DMMO3', 'TRNT11', 'CMIG4', 'CSAN3',
+    'VIIA3', 'PETR4', 'PLPL3', 'RAPT4', 'SANB3', 'NTCO3', 'LREN3', 'JBSS3', 'AMAR3', 'LAME4', 'GGBR4', 'MILS3', 'PRNR3', 'RANI3', 'PFRM3',
+    'MDNE3', 'UNIP3', 'KLBN11', 'BRPR3', 'BBVJ11', 'MOVI3', 'SAPR11', 'ABEV3', 'BEEF3', 'GFSA3', 'WEGE3', 'MRFG3', 'PGMN3', 'LPSB3', 'BCFF11',
+    'TEND3', 'IGBR3', 'BIDI4', 'INEP3', 'ENJU3', 'AERI3', 'GMAT3'
 ]
 
 def get_main_codes():
     return main_codes
+
+def get_all_tickers():
+    return main_codes + list(set(another_codes) - set(main_codes))
 
 def is_bullish_candle(candle):
     return candle['close'] > candle['open']
@@ -239,7 +172,7 @@ def candle_type(df):
             return {'candle_type': 'shooting_star', 'ind_trend': 'DOWN'}
         return None
 
-    # Apenas para o último candle
+    # Alterar para fazer isso para todo candle
     tmp = df.sort_values(by=['date'])
     tickers = tmp['ticker'].unique()
     d = pd.DataFrame()
@@ -260,6 +193,7 @@ def candle_type(df):
                 # only the first
                 break
     return df.merge(d, on=['date', 'ticker'], how='left') if d.shape[0] > 0 else df.assign(candle_type=None)
+
 ### end candle types ###
 
 ### Obter os candles que tiveram os melhores ganhos históricos
@@ -277,7 +211,7 @@ def get_buy_candles(df, qtd_days=8, gain_ratio=2, min_pct_gain=None): # rever se
             target = b['close'] + gain_ratio * (b['close'] - b['low'])
             gain = tmp.iloc[j]['close'] - b['close']
             if ((tmp.iloc[j]['close'] >= target) and (tmp.iloc[j]['close'] > s[1])):
-                if not min_pct_gain or (gain >= min_pct_gain/100 * b['close']):
+                if not min_pct_gain:
                     s = (j, tmp.iloc[j]['close'])
                 elif gain >= min_pct_gain/100 * b['close']:
                     s = (j, tmp.iloc[j]['close'])
@@ -313,9 +247,9 @@ def prepare_dataframe_to_ml(df, split_df=True, col_predict_name='y'):
     dataset['ema72_position'] = np.where(df['close'] >= df['close_ema72'], 1, 0)
     dataset[col_predict_name] = df[col_predict_name].values
     dataset = dataset.drop_duplicates()
+    test_ids = np.random.randint(1, dataset.shape[0], int(30/100*dataset.shape[0]))
+    test_ids = dataset.iloc[test_ids].index
     if split_df:
-        test_ids = np.random.randint(1, dataset.shape[0], int(30/100*dataset.shape[0]))
-        test_ids = dataset.iloc[test_ids].index
         train = dataset[~dataset.index.isin(test_ids)]
         test = dataset[dataset.index.isin(test_ids)].drop(col_predict_name, axis=1)
         X = train.drop(col_predict_name, axis=1)
@@ -326,86 +260,89 @@ def prepare_dataframe_to_ml(df, split_df=True, col_predict_name='y'):
         test = None
     return {'X': X, 'Y': Y, 'test': test}
 
+def series_to_supervised(df, n_prev=1, n_later=0, cols_fut=None, dropna=True, partition_by=None, sort_by=None, debug=True): # , shift_columns=None
+    # cols_fut examle: {'<column_name>': <qtd_future_shift>, '<column_name>': <qtd_future_shift>}
+    if debug: from tqdm import tqdm
+    if n_later != 0: cols_fut = None
+    columns = df.columns
+    df_result = pd.DataFrame()
+    dfs_flt = [df] if not partition_by else [df.query(f'{partition_by} == "{x}"') for x in df[partition_by].unique()]
+    for tmp in (dfs_flt if not debug else tqdm(dfs_flt)):
+        if sort_by: tmp.sort_values(by=sort_by)
+        dfs = [tmp.rename(columns={col: f'{col}_t-{j}' for col in columns}).shift(j) for j in range(1, n_prev + 1)]
+        dfs += [tmp]
+        dfs += [tmp.rename(columns={col: f'{col}_t+{j+1}' for col in columns}).shift(-(j+1)) for j in range(n_later)]
+        if cols_fut:
+            i_df = -2 if n_later > 0 else -1
+            dfs[i_df] = dfs[i_df].assign(**{
+                f'{x}_t+{j+1}': dfs[i_df][x].shift(-(j+1)) for x in cols_fut.keys() for j in range(cols_fut[x])
+            })
+        df_result = df_result.append(
+            pd.concat(dfs, axis=1).dropna() if dropna else pd.concat(dfs, axis=1),
+            ignore_index=True
+        )
+    return df_result
+
+def split_random_train_test(df, tain_frac=0.7, drop_test_columns=None, debug=True):
+    train = df.sample(frac=0.7)
+    test = df.drop(train.index) if not drop_test_columns else df.drop(train.index).drop(drop_test_columns, axis=1)
+    if debug: print(f'Train shape: {train.shape} | Test shape: {test.shape}')
+    return train, test
+
+def drop_columns(df, pattern):
+    import re
+    return df[[x for x in df.columns if not re.search(pattern, x)]]
+
 ### Perceptron
 class PerceptronModel:
-    def __init__(self, weights=None, bias=None):
+    def __init__(self, weights, bias, learning_rate, threshold):
         self.weights = weights
         self.bias = bias
-    def predict(self, tst):
-        u = get_u(self.weights, tst, self.bias)
-        return activation_function(u) 
+        self.threshold = threshold
+        self.learning_rate = learning_rate
 
-    def get_u(w, x, bias, m_factor=1): # b = bias, w = weight, x = value
-        return (w * x).sum() + m_factor * bias
+    def predict(self, test):
+        u = self.calc_u(test)
+        return self.activation_function(u)
 
-    def update_weights(weight, expected, predicted, x, a=0.4): # a = N
-        return weight + a * x * (expected - predicted)
+    def calc_u(self, x, m_factor=1): # b = bias, w = weight, x = value
+        return round((self.weights * x).sum() + m_factor * self.bias, 4)
 
-    def update_bias(bias, expected, predicted, a=0.4):
-        return bias + a * (expected - predicted)
+    def update_weights(self, x, expected, predicted):
+        self.weights = self.weights + self.learning_rate * x * (expected - predicted)
 
-    def activation_function(u, threshold=0):
-        return 1 if u >= threshold else -1
+    def update_bias(self, expected, predicted):
+        self.bias = round(self.bias + self.learning_rate * (expected - predicted), 4)
 
-    def get_error(expected, predicted, k, e=0):
-        return e + (abs(expected - predicted) / k)
+    def activation_function(self, u):
+        return 1 if u >= self.threshold else -1
 
-    def buy_candles(df):
-        return np.where((df['close'] < df['close'].shift(-5)) & (df['close'].shift(-5) >= (df['close'] + 2 * (df['close'] - df['open']))), 1, 0)
+    def get_error(self, expected, predicted, k, error):
+        return error + (abs(expected - predicted) / k)
 
-    def check_model(dataset, model, test, predict_label='y'):
-        qtd_errors = 0
-        for i in test.index:
-            y = model.predict(test.loc[i])
-            if y != dataset.loc[i, predict_label]:
-                qtd_errors += 1
-        acc = 100 - (qtd_errors / test.shape[0] * 100)
-        print(f'Acurácia: {acc}%')
-        return acc
+    def fit(self, df, iterations=100, debug=True):
+        import pandas as pd
+        import numpy as np
+        from tqdm import tqdm
+        _fit = False
+        train = df.iloc[:, :-1]
+        label = df.iloc[:, -1]
+        for it in (tqdm(range(iterations)) if debug else range(iterations)):
+            # if debug: print(f"{it+1}/{iterations}")
+            e = 0
+            for i in range(train.shape[0]):
+                x = train.iloc[i].to_numpy()
+                expected = label.iloc[i]
+                u = self.calc_u(x)
+                predicted = self.activation_function(u)
+                if predicted != expected:
+                    _fit = True
+                    self.update_weights(x, expected, predicted)
+                    self.update_bias(expected, predicted)
+                    e = self.get_error(expected, predicted, i + 1, e)
+            if not _fit: break
+            _fit = False
 
-def run_perceptron(df, ticker=None, n_try=200):
-    dfs_ml = prepare_dataframe_to_ml(df, split_df=False)
-    bias = 0.5
-    a = 0.4
-    e = 0
-    fit = False
-
-    weights = np.random.random(df.shape[1] - 1)
-    train = dfs_ml['X'] # X
-    label = dfs_ml['Y'] # Y
-    test = dfs_ml['test']
-
-    errors = np.array([])
-    best_model = {'e': float('inf'), 'model': None}
-
-    for _ in tqdm(range(n_try)):
-        # e = 0
-        for i in range(train.shape[0] - 1):
-            x = train.iloc[i].to_numpy()
-            expected = label.iloc[i][0]
-            u = get_u(weights, x, bias)
-            predicted = activation_function(u)
-            if predicted != expected:
-                fit = True
-                weights = update_weights(weights, expected, predicted, x, a=a)
-                bias = update_bias(bias, expected, predicted, a=a)
-                e = get_error(expected, predicted, i + 1, e=e)
-        if best_model['e'] > e:
-            best_model['e'] = e
-            best_model['model'] = PerceptronModel(weights, bias)
-        errors = np.append(errors, e)
-        if not fit: break
-        fit = False
-    m = PerceptronModel(weights, bias)
-    # print(f'Model: w = {weights.round(2).tolist()} | bias = {bias}')
-    print(f'Best model: w = {best_model["model"].weights.round(2).tolist()} | bias = {best_model["model"].bias}')
-    return m
-### Fim Perceptron
-
-# def run_ml_model(model_name='perceptron'):
-#     if model_name == 'perceptron':
-
-# wknn
 class WKNN:
     def __init__(self, data, k=5):
         import pandas as pd
@@ -452,6 +389,49 @@ class WKNN:
             self.results = pd.DataFrame({**{'original_index': data_test.index}, **result})
         return self.results
 
+def buy_candles(df):
+    return np.where((df['close'] < df['close'].shift(-5)) & (df['close'].shift(-5) >= (df['close'] + 2 * (df['close'] - df['open']))), 1, 0)
+
+def check_model(dataset, model, test, predict_label='y'):
+    qtd_errors = 0
+    for i in test.index:
+        y = model.predict(test.loc[i])
+        if y != dataset.loc[i, predict_label]:
+            qtd_errors += 1
+    acc = 100 - (qtd_errors / test.shape[0] * 100)
+    print(f'Acurácia: {acc}%')
+    return acc
+
+def perceptron(df, ticker=None, n_try=200):
+    df_ml = prepare_dataframe_to_ml(df, split_df=False)
+    bias = 0.5 # random.random()
+    learning_rate = 0.4 # random.random()
+    threshold = 0
+
+    # df_unique = df.drop_duplicates().reset_index(drop=True)
+    weights = np.random.random(df.shape[1] - 1)
+    train = df_ml['X'] # X
+    label = df_ml['Y'] # Y
+    test = df_ml['test']
+
+    # Model creation
+    model = PerceptronModel(weights, bias, learning_rate, threshold=0) # sign function (degrau)
+    # Fit model
+    model.fit(train, debug=True)
+    # Predict
+    # print(f"{' '.join(map(str, model.weights.round(4)))} {model.bias}")
+    result = test.apply(model.predict, axis=1).tolist()
+    return model, result
+### Fim Perceptron
+
+def m2m(x, m=15):
+    if m > 60: m = 60
+    x = str(x)
+    p2 = int(x[2:])
+    p2 = str(m * (p2 // m))
+    if len(p2) == 1: p2 = '0' + p2
+    return x[:2] + p2
+
 def get_polyfit_trend(serie, index, deg=1):
     """
     If the result is a +ve value --> increasing trend
@@ -460,6 +440,52 @@ def get_polyfit_trend(serie, index, deg=1):
     """
     import numpy as np
     return np.polyfit(index, serie, deg=deg, rcond=None, full=False, w=None, cov=False)
+
+def get_stock_prices(tickers=None, old_hist=pd.DataFrame(), days=0, start_date=None, source='b3'):
+    # FIXME
+    df = pd.DataFrame()
+    b3_path = 'https://arquivos.b3.com.br/apinegocios/tickercsv/'
+
+    t_s = datetime.datetime.now()
+    es_time = None
+    codes_ = list(tickers) if tickers else main_codes[:]
+    for code in codes_:
+        if not start_date: start_date = (datetime.datetime.today()-datetime.timedelta(days=days))
+        tmp = old_hist[old_hist['ticker'] == code]['date'] if not old_hist.empty else pd.DataFrame()
+        for j in range(days + 1):
+            dt = (start_date + datetime.timedelta(days=j)).date()
+            if dt.weekday() in range(5, 7): continue
+            if not tmp.empty and today.date() != dt and tmp[tmp.dt.date == dt].shape[0] > 0:
+                continue
+            try:
+                df = df.append(pd.read_csv(f'{b3_path}{code}/{dt}', compression='zip', sep=';'), ignore_index=True)
+                print(df.shape)
+            except:
+                None
+    if not df.empty: df['GrssTradAmt'] = df['GrssTradAmt'].astype(str).str.replace(',', '.').astype(float)
+    return df
+
+def extract_minute_b3hist(df, var_to_extract='NtryTm'):
+    return df.assign(minute=df['NtryTm'].apply(lambda x: str(x)[:4]).astype(int))
+
+def aggregate_b3_hist(df, by='minute', limit_time=None):
+    # df_trades = extract_time_b3hist(df, time=by)
+    df_trades = df.copy()
+    df_trades['minute'] = df_trades['minute'].astype(int)
+    if limit_time: df_trades = df_trades[df_trades['minute'] < limit_time]
+    df_trades['TradQty'] = df_trades['TradQty'].astype(int)
+    df_trades['GrssTradAmt'] = df_trades['GrssTradAmt'].astype(str).str.replace(',', '.').astype(float)
+    df_trades['financial_volume'] = df_trades['GrssTradAmt'] * df_trades['TradQty']
+    
+    df_trades = df_trades.drop(['GrssTradAmt', 'TradgSsnId', 'RptDt', 'NtryTm'], axis=1)
+    l = ['TradDt', 'TckrSymb', by] if by == 'minute' else ['TradDt', 'TckrSymb']
+    df_agg = df_trades.groupby(by=l).sum().reset_index()
+    df_agg = df_agg.rename(columns={'TckrSymb': 'ticker', 'UpdActn': 'updactn', 'TradQty': 'volume', 'TradId': 'id', 'TradDt': 'date'})
+    if by == 'minute':
+        df_agg['date'] = (df_agg['date'].astype(str) + df_agg['minute'].astype(str)).apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d%H%M'))
+    else:
+        df_agg['date'] = pd.to_datetime(df_agg['date'], infer_datetime_format=True)
+    return df_agg.drop('minute', axis=1)
 
 def vwap(price, volume, decimal=2):
     return (np.cumsum(price * volume).cumsum() / volume.cumsum()).round(decimal)
@@ -470,18 +496,56 @@ def macd(fast_ma, slow_ma, decimal=2):
 def ewm_std(x, ewm):
     return (x - ewm.shift(1))
 
+def get_close(df, var_date='TradDt', limit_time=1730):
+    df_ = df.copy()
+    r = pd.DataFrame()
+    for code in df['TckrSymb'].unique():
+        for date in df_[var_date].sort_values().unique():
+            r_ = df_.query(f"({var_date} == '{date}') & (TckrSymb == '{code}') & (minute < {limit_time})").sort_values(by=['TradId'], ascending=False).drop_duplicates(subset=['minute'])
+            r = r.append(r_, ignore_index=True)
+    r['date'] = (r['TradDt'].astype(str) + r['minute'].astype(str)).apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d%H%M'))
+    # calcular min, max, open
+    r = r.rename(columns={'TckrSymb': 'ticker', 'NtryTm': 'time', 'TradId': 'trade_id', 'GrssTradAmt': 'close'})
+    return r.sort_values(by=['date', 'minute'])[['date', 'ticker', 'close', 'time', 'trade_id', 'minute']].reset_index(drop=True)
+
+def get_candle_variables(df, by='minute', var_date='TradDt', limit_time=1730):
+    # FIXME
+    df_ = df.rename(columns={'TckrSymb': 'ticker', 'NtryTm': 'time', 'TradId': 'trade_id'}).copy()
+    r = pd.DataFrame()
+    if by != 'minute': by = 'TradDt'
+    for code in df_['ticker'].unique():
+        for date in df_[var_date].sort_values().unique():
+            # r_ = df_.query(f"({var_date} == '{date}') & (ticker == '{code}') & (minute < {limit_time})")
+            r_ = df_[(df_[var_date] == date) & (df_['ticker'] == code) & (df_['minute'].astype(int) < limit_time)]
+            r0 = r_.sort_values(by=['trade_id'], ascending=False).drop_duplicates(subset=[by]).rename(columns={'GrssTradAmt': 'close'})
+            r0 = r0.merge(r_.sort_values(by=['trade_id']).drop_duplicates(subset=[by])[[by, 'GrssTradAmt']].rename(columns={'GrssTradAmt': 'open'}), on=by, how='inner')
+            r0 = r0.merge(r_.sort_values(by=['GrssTradAmt'], ascending=False).drop_duplicates(subset=[by])[[by, 'GrssTradAmt']].rename(columns={'GrssTradAmt': 'max'}), on=by, how='inner')
+            r0 = r0.merge(r_.sort_values(by=['GrssTradAmt']).drop_duplicates(subset=[by])[[by, 'GrssTradAmt']].rename(columns={'GrssTradAmt': 'min'}), on=by, how='inner')
+            r = r.append(r0, ignore_index=True)
+    if by == 'minute':
+        r['date'] = (r['TradDt'].astype(str) + r['minute'].astype(str)).apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d%H%M'))
+        list_var = ['date', 'ticker', 'open', 'close', 'min', 'max', 'time', 'trade_id', 'minute']
+        return r.sort_values(by=['date', 'minute'])[list_var].reset_index(drop=True)
+    else:
+        r['date'] = pd.to_datetime(r['TradDt'], infer_datetime_format=True)
+        list_var = ['date', 'ticker', 'open', 'close', 'min', 'max', 'time', 'trade_id']
+        return r.sort_values(by=['date'])[list_var].reset_index(drop=True)
+
 def ema(serie, period):
     return serie.ewm(span=period, min_periods=period, adjust=False).mean().round(2)
 
-def create_ema(df, periods=[8, 20, 72, 200]):
+def create_ema(df, periods=None):
     df_ = pd.DataFrame()
     tmp = df.copy()
+    if not periods: periods = _PERIODS_EMA
+    if not isinstance(periods, list): periods = [periods]
     for code in tmp['ticker'].unique():
         tmp = tmp[tmp['ticker'] == code].sort_values(by=['date'])
         for p in periods:
             # call ema function
-            tmp[f'close_ema{p}'] = ema(serie=tmp['close'], period=p)
+            tmp[f'close_ema{p}'] = tmp['close'].ewm(span=p, min_periods=p, adjust=False).mean().round(2)
             if p == 20:
+                # call ema function
                 tmp[f'volume_ema{p}'] = tmp['volume'].ewm(span=p, min_periods=p, adjust=False).mean().round(0).astype(int, errors='ignore')
         df_ = df_.append(tmp, ignore_index=True)
     return df_
@@ -524,6 +588,31 @@ def crossing_ema_long_term(df):
 def candle_crossing_ema(df, period):
     return np.where(((df['close'] > df[f'close_ema{period}']) & (df['close'].shift(1) <= df[f'close_ema{period}'].shift(1))), 1, 0)
 
+def get_trades_recom(df, qtd_days=8, gain_ratio=2, min_pct_gain=5): # min_pct_gain=5
+    tmp = df.sort_values(by=['date']).copy()
+    ids = {'buy': [], 'sell': []}
+    for i in range(tmp.shape[0] - 1):
+        if len(ids['sell']) > 0 and i <= ids['sell'][-1]:
+            continue
+        b = tmp.iloc[i]
+        s = (None, -1)
+        for j in range(i + 1, i + qtd_days):
+            if j == tmp.shape[0]:
+                break
+            target = b['close'] + gain_ratio * (b['close'] - b['low'])
+            gain = tmp.iloc[j]['close'] - b['close']
+            if ((tmp.iloc[j]['close'] >= target) and (tmp.iloc[j]['close'] > s[1])):
+                if not min_pct_gain:
+                    s = (j, tmp.iloc[j]['close'])
+                elif gain >= min_pct_gain/100 * b['close']:
+                    s = (j, tmp.iloc[j]['close'])
+        if s[0]:
+            ids['buy'].append(i)
+            ids['sell'].append(s[0])
+    trades_buy = tmp.iloc[ids['buy']][['date', 'close', 'low']].reset_index().rename(columns={'date': 'buy_date', 'index': 'original_index', 'low': 'loss'}).reset_index()
+    trades_sell = tmp.iloc[ids['sell']][['date', 'close']].reset_index(drop=True).rename(columns={'date': 'sell_date', 'close': 'gain'}).reset_index()
+    return trades_buy.merge(trades_sell, on=['index'], how='inner').drop('index', axis=1).rename(columns={'original_index': 'index'})
+
 def normalize_recommendations(df):
     tmp = df.copy()
     tmp['buy'] = np.where(tmp['volume'] < tmp['volume_ema20'], 0, df['buy'])
@@ -533,15 +622,14 @@ def normalize_recommendations(df):
 def flag_volume(df):
     return df.assign(ind_volume=np.where(
         df['volume'].notna() & (df['volume'] < df['volume_ema20']), 
-        -1, 
-        np.where(df['volume'].notna() & (df['volume'] > df['volume_ema20']), 1, 0))
+        -1, np.where(df['volume'].notna() & (df['volume'] > df['volume_ema20']), 1, 0))
         )
 
 def candle_trend(df):
     return df.assign(candle_trend=np.where(
-            df['close'] < df['open'], 
-            -1, 
-            np.where(df['close'] == df['open'], 0, 1)
+        df['close'] < df['open'], 
+        -1, 
+        np.where(df['close'] == df['open'], 0, 1)
         )
     )
 
@@ -560,11 +648,11 @@ def plot_risk_return(retscomp, path_fig=None, risk_return_period=None):
             xytext = (20, -20), 
             textcoords = 'offset points', ha = 'right', va = 'bottom', 
             bbox = dict(boxstyle = 'round,pad=0.5', fc = 'yellow', alpha = 0.5), 
-            arrowprops = dict(arrowstyle = '->')
+            arrowprops = dict(arrowstyle = '->')#, connectionstyle = 'arc3,rad=0')
         )
     if path_fig: plt_.savefig(path_fig, format='svg', dpi=1000)
 
-def get_return_rate_and_risk(df, plot_risk_and_return=False, risk_return_period=None):
+def get_return_rate_and_risk(df, plot_risk_and_return=True, risk_return_period=None):
     if risk_return_period: 
         df = df[pd.to_datetime(df['date']).dt.date >= (today - datetime.timedelta(risk_return_period)).date()]
     dfcomp = df.pivot(index='date', columns='ticker', values='close').dropna()
@@ -576,27 +664,43 @@ def get_return_rate_and_risk(df, plot_risk_and_return=False, risk_return_period=
 def create_yahoo_download_query(code, period1=946695600, period2=None, interval_days=1, events='history'):
     now = datetime.datetime.today()
     if not period2: period2 = int(datetime.datetime(year=now.year, month=now.month, day=now.day, hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond).timestamp())
+    # if _DEBUG: print(f'Period1: {datetime.datetime.fromtimestamp(period1)} | Period2: {datetime.datetime.fromtimestamp(period2)}')
     return f'{yahoo_api_path}{code}.SA?period1={period1}&period2={period2}&interval={str(interval_days)}d&events={events}'
 
-def get_yahoo_finance(code, interval_days=1, period1=946695600, period2=None, events='history'):
-    url = create_yahoo_download_query(code=code, period1=period1, interval_days=interval_days, events=events)
-    try:
-        df = pd.read_csv(url).assign(ticker=code)
-        return df.rename(columns={x: x.lower().replace(' ', '_') for x in df.columns})[default_yahoo_df_columns]
-    except:
-        return pd.DataFrame()
+def get_yahoo_finance(code, interval_days=1, period1=946695600, period2=None, events='history', ttl=3):
+    df = pd.DataFrame()
+    if not isinstance(code, list): code = [code]
+    success = []
+    errors = []
+    for ticker in code:
+        url = create_yahoo_download_query(code=ticker, period1=period1, period2=period2, interval_days=interval_days, events=events)
+        try:
+            tmp = pd.read_csv(url).assign(ticker=ticker)
+            tmp = tmp.rename(columns={x: x.lower().replace(' ', '_') for x in tmp.columns})[default_yahoo_df_columns]
+            tmp = tmp[tmp != 'null'].dropna()
+            for col in default_yahoo_df_columns:
+                tmp[col] = tmp[col].astype(float, errors='ignore')
+            df = df.append(tmp, ignore_index=True)
+            success.append(ticker)
+        except Exception as exp:
+            errors.append(ticker)
+            print(f'{now()} [{ticker}] Error: {exp}')
+    # print(f'Downloads - Success: {count_success} | Error {count_error}')
+    return df
 
-def daily_analysis_yfinance(write_path=None, hist_path='hist_market_trading_yfinance.csv', get_recom=True, tickers=set(main_codes + another_codes), norm_rec=False, interval_days=1, period1=946695600, period2=None, qtd_days=None, plot_risk_and_return=False, risk_return_period=365):
+def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=True, tickers=set(main_codes + another_codes), norm_rec=False, interval_days=1, period1=946695600, period2=None, qtd_days=None, plot_risk_and_return=False, risk_return_period=365):
     codes = [x for x in tickers if not x.endswith('F')]
+    now = datetime.datetime.today()
     df = pd.DataFrame()
     hist = pd.DataFrame()
     print(f"Baixando dados para os últimos {qtd_days if qtd_days else '<todo o período>'} dias...")
     if hist_path and os.path.exists(hist_path): 
         hist = pd.read_csv(hist_path)[default_yahoo_df_columns]
+    if qtd_days: period1 = int((datetime.datetime(year=now.year, month=now.month, day=now.day, hour=1) - datetime.timedelta(days=qtd_days)).timestamp())
+
     for ticker in tqdm(codes):
-        if qtd_days: period1 = int((datetime.datetime.today() - datetime.timedelta(days=qtd_days)).timestamp())
         tmp = get_yahoo_finance(code=ticker, interval_days=interval_days, period1=period1, period2=period2)
-        if not tmp.empty or tmp.shape[0] > 0:
+        if tmp.shape[0] > 1:
             tmp = tmp.rename(columns={'code': 'ticker'})
             if qtd_days and os.path.exists(hist_path): tmp = tmp.append(hist[list(tmp.columns)][hist['ticker'] == ticker], ignore_index=True).drop_duplicates(subset=['date', 'ticker'])
             tmp = create_ema(tmp.drop_duplicates(['date', 'ticker']))
@@ -605,11 +709,15 @@ def daily_analysis_yfinance(write_path=None, hist_path='hist_market_trading_yfin
             tmp['macd_signal'] = ema(serie=tmp['macd'], period=8)
             tmp = get_signals(tmp)
             if write_path and not qtd_days:
-                tmp.to_csv(f"{write_path + ticker}.csv", index=False)
+                tmp.to_csv(f"{write_path + ticker}.csv.zip", index=False, compression='zip')
             df = df.append(tmp, ignore_index=True)
-    
+    # # get and plot risk and return of main tickers codes
+    # get_return_rate_and_risk(df[df['ticker'].isin(main_codes)], plot_risk_and_return=plot_risk_and_return, risk_return_period=risk_return_period)
+
+    # get recommendations
     df_recom = pd.DataFrame()
     if get_recom and not df.empty:
+        # df = candle_type(df) # get candle types
         df['date'] = pd.to_datetime(df['date'], infer_datetime_format=True)
         df_recom = df[(df['buy'] == 1) | (df['sell'] == 1) | (df['close'] > df['high'].shift(1))].sort_values(by=['date'], ascending=False).drop_duplicates(subset=['ticker'])
         query = "((buy == 1) | (sell == 1)) & ((volume > 0) & (close < 100))"
@@ -617,22 +725,62 @@ def daily_analysis_yfinance(write_path=None, hist_path='hist_market_trading_yfin
         df_recom['volume_ema20'] = df_recom['volume_ema20'].round(2)
         df_recom = df_recom.drop(['high', 'low', 'adj_close', 'volume'], axis=1).sort_values(by=['ticker'])
         df_recom = df_recom[df_recom['ticker'].isin(main_codes)].sort_values(by=['date'], ascending=False).append(df_recom[~df_recom['ticker'].isin(main_codes)], ignore_index=True)
-        df_recom.to_html(f'reports/yfinance/radar_yfinance.html', index=False)
-        df_recom.to_csv('data/radar_yfinance.csv', index=False)
+        df_recom.to_html(f'reports/yfinance/recommendations_yfinance.html', index=False)
+        df_recom.to_csv('data/recommendations_yfinance.csv.zip', index=False, compression='zip')
         tmp = df_recom[df_recom['date'].dt.date == min(today.date(), df['date'].max())]
         if tmp.shape[0] == 0:
-            tmp = candle_trend(df[df['date'].dt.date == min(today.date(), df['date'].max())])[['date', 'ticker', 'candle_trend']]
+            tmp = candle_trend(df[df['date'].dt.date == min(today.date(), df['date'].max())])[['date', 'ticker', 'candle_trend']] #, 'candle_type']]
             print("Filtro por data atual:", tmp.shape)
             tmp = tmp[tmp['ticker'].isin(main_codes)]
             print("Filtro por códigos principais:", tmp.shape)
         tmp = tmp[tmp['ticker'].isin(main_codes)].sort_values(by=['close']).reset_index(drop=True)
-        tmp.to_html(f'reports/radar_yfinance_today.html')#, index=False)
-        print(f'Radar saved in: radar_yfinance.html')
+        tmp.to_html(f'reports/recommendations_yfinance_today.html')#, index=False)
+        print(f'Recommendations saved in: recommendations_yfinance.html')
         # to return
         df_recom = tmp[tmp['buy'] == 1][['date', 'ticker', 'close']]
-    if hist.empty or hist[pd.to_datetime(hist['date']).dt.date == (today - datetime.timedelta(1)).date()].shape[0] == 0:
+    if not df.empty and (hist.empty or hist[pd.to_datetime(hist['date']).dt.date == (today - datetime.timedelta(1)).date()].shape[0] == 0):
         if not hist.empty: print(hist['date'].max())
         tmp_hist = df[df['date'] != today.date()].sort_values(['ticker', 'date'])
         print(f'A data {(today - datetime.timedelta(1)).date()} não está na base\nEscrevendo em {hist_path} sem a data {today.date()}: {tmp_hist.shape}')
         tmp_hist.to_csv(hist_path, index=False)
     return df, df_recom
+
+def get_and_agg_stock_prices(write_path=None, by=['d'], tickers=set(main_codes + another_codes), days=0, start_date=None, source='b3'):
+    dfs = {'m': pd.DataFrame(), 'h': pd.DataFrame(), 'd': pd.DataFrame()}
+    # tmp = []
+    # l_ = pool.map(get_stock_prices, tickers)
+
+    # Alterar isso para baixar todo o dataframe da b3
+    tmp = get_stock_prices(tickers=tickers, days=days, start_date=start_date, source=source)
+    # tmp = pool.map(get_stock_prices, [x)
+    if not tmp.empty:
+        df = extract_minute_b3hist(tmp)
+        del(tmp)
+        for b in by:
+            if b == 'd':
+                df_agg = aggregate_b3_hist(df, by='date', limit_time=limit_time)
+                tmp = get_candle_variables(df, by='date')
+                tmp = tmp.merge(df_agg, on=['date', 'ticker'], how='inner')
+                t = 60 * 24
+            else:
+                if b == 'h':
+                    t = 60
+                elif type(b) == int:
+                    t = b
+                else:
+                    t = 1
+                # t = 1 if b == 'm' else 60
+                # tmp = df.copy()
+                tmp = df.assign(minute=df['minute'].apply(m2m, args=(t,)))
+                # tmp['minute'] = tmp['minute'].apply(m2m, args=(t,))
+                df_agg = aggregate_b3_hist(tmp, limit_time=limit_time)
+                tmp = get_candle_variables(tmp, by='minute')
+                tmp = tmp.merge(df_agg, on=['date', 'ticker'], how='inner')
+            if not write_path: 
+                dfs[b] = dfs[b].append(tmp, ignore_index=True)
+            else:
+                tmp.to_csv(f"{write_path + x}_agg{t}m.csv.zip", index=False, compression='zip')
+                del(tmp)
+                # dfs = {'m': pd.DataFrame(), 'h': pd.DataFrame(), 'd': pd.DataFrame()}
+    if write_path: print("Arquivos salvos em:", write_path)
+    return dfs
