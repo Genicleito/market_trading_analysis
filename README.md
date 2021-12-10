@@ -1,4 +1,4 @@
-# Repositório com scripts para análise técnica de ações da bolsa de valores
+# Repositório com scripts para análise técnica e Machine Learning de ativos da bolsa de valores B3.
 
 Códigos construídos considerando fundamentos da análise técnica e leitura de candles.
 Os dados são coletados em tempo real por meio de Web scraping no Yahoo Finance (<https://finance.yahoo.com/>).
