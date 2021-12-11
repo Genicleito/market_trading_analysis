@@ -167,6 +167,7 @@ def train_model(read_path, model_path, write_path, predict_column, n_estimators=
         )
         result['mse'] = mse
         # Write partial result in temp path (slower but less memory overhead when data volume is large)
+        os.makedirs(f"{write_path}/assets/", exist_ok=True)
         result.to_csv(f"{write_path}/assets/{ticker}.csv.zip", index=False)
 
 def predict(history_path, models_path, write_path, columns=None, n_prev=3, cols_fut={'close': 1}, partition_by='ticker'):
@@ -258,7 +259,7 @@ if now().hour >= 19 or now().hour <= 6:
     )
     branching = BranchPythonOperator(
         task_id='branching',
-        python_callable=lambda dt, p: 'train_model' if (os.path.exists(p) and dt.weekday() in [5, 6]) else 'predict',
+        python_callable=lambda dt, p: 'train_model' if (not os.path.exists(p) and (dt.weekday() in [5, 6] or dt.weekday() == 4 and dt.hour > 19)) else 'predict',
         op_kwargs={'dt': now(), 'p': prediction_history_path}
     )
     series_to_supervised_task >> branching
