@@ -139,7 +139,9 @@ def train_model(read_path, model_path, write_path, predict_column, n_estimators=
         print(f"{i+1}/{len(models.keys())}: {ticker}")
         if os.path.exists(f"{write_path}/assets/{ticker}.csv.zip"): continue
         tmp = technical_analysis.drop_columns(dfs_ml[i], pattern='date(_|$)|ticker(_|$)')
-        train, test = technical_analysis.split_random_train_test(tmp, debug=False)
+        # train, test = technical_analysis.split_random_train_test(tmp, debug=False)
+        train = tmp.iloc[int(0.7 * tmp.shape[0]):]
+        test = tmp.drop(train.index)
         X = train.drop(predict_column, axis=1)
         y = train[predict_column]
         # Cria o modelo
