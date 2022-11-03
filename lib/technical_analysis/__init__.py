@@ -344,18 +344,20 @@ class PerceptronModel:
             _fit = False
 
 class WKNN:
-    def __init__(self, data, k=5):
+    def __init__(self, train_data, k=5, pred_column='y', task='r'):
         import pandas as pd
         import math
         from tqdm import tqdm
         self._pd = pd
         self._math = math
         self._tqdm = tqdm
-        self.data = data if isinstance(data, pd.DataFrame) else pd.DataFrame(data)
+        self.train_data = train_data if isinstance(train_data, pd.DataFrame) else pd.DataFrame(train_data)
         self.k = k
+        self.pred_column = pred_column
+        self.task = task
         
-    def agg_weights(self):
-        scores = self.data.groupBy('labels').sum().reset_index()
+    def agg_weights(self, w_candidates):
+        scores = w_candidates.groupby('labels').sum().reset_index()
         # id of the max score
         max_score_indice = scores['weights'].idxmax()
         # label of the max score
@@ -366,28 +368,50 @@ class WKNN:
     def euclidian_distance(self, x, y):
         return self._math.sqrt((x - y).pow(2).sum())
 
-    def fit(self, data_test, task='r', debug=True, all_columns_df=False):
-        tsk = 'r' if self.data['y'].dtypes == 'float64' else task
-        if isinstance(data_test, self._pd.Series): data_test = data_test.to_frame().T
+    def __get_best_candidates(self, x_serie):
+        # Calculate the distance of test and all elements of data train
+        dists = self.train_data.drop(self.pred_column, axis=1).apply(
+            self.euclidian_distance,
+            args=(x_serie,),
+            axis=1
+        )
+        # relation between distances and weights
+        proximities = 1/dists
+        # Sort k distances
+        k_nearest_indices = dists.sort_values().iloc[:self.k].index
+        candidates = self.train_data[self.pred_column].loc[k_nearest_indices]
+        weights = proximities.loc[k_nearest_indices]
+        w_candidates = pd.DataFrame({'labels': candidates, 'weights': weights})
+        return candidates if self.task == 'r' else w_candidates
+    
+    def fit(self, test_data, debug=True, all_columns_df=False):
+        # tsk = 'r' if self.train_data[self.pred_column].dtypes == 'float64' else self.task
+        if isinstance(test_data, self._pd.Series): test_data = test_data.to_frame().T
         result = {'y_real': [], 'y_predict': []}
-        for i in (range(data_test.shape[0]) if not debug else self._tqdm(range(data_test.shape[0]))):
-            x_test = data_test.iloc[i]
+        for i in (test_data.index if not debug else self._tqdm(test_data.index)):
+            x_test = test_data.loc[i]
             # Store the real (test) value
-            result['y_real'] += [x_test['y']]
-            # Calculate the distance of test and all elements of data train
-            dists = self.data.apply(self.euclidian_distance, args=(x_test,), axis=1)
-            # relation between distances and weights
-            proximities = 1/dists
-            # Sort k distances
-            k_nearest_indices = dists.sort_values().iloc[:self.k].index
-            candidates = self.data['y'].loc[k_nearest_indices]
-            weights = proximities.loc[k_nearest_indices]
-            result['y_predict'] += [candidates.mean()] if tsk == 'r' else [self.agg_weights(candidates, weights)]
+            result['y_real'] += [x_test[self.pred_column]]
+            # Get best candidates without predict column in test data
+            candidates = self.__get_best_candidates(x_test.drop(self.pred_column))
+            # Make the prediction
+            result['y_predict'].append(candidates.mean() if self.task == 'r' else self.agg_weights(candidates))
         if all_columns_df:
-            self.results = pd.DataFrame({**{x: data_test[x] for x in data_test.columns}, **result})
+            self.results = self._pd.DataFrame({**{x: test_data[x] for x in test_data.columns}, **result})
         else: # Only two new columns
-            self.results = pd.DataFrame({**{'original_index': data_test.index}, **result})
+            self.results = self._pd.DataFrame({**{'original_index': test_data.index}, **result})
         return self.results
+    
+    def predict(self, new_data, debug=True):
+        if isinstance(new_data, self._pd.Series): new_data = new_data.to_frame().T
+        y_predict = []
+        for i in (new_data.index if not debug else self._tqdm(new_data.index)):
+            row = new_data.loc[i]
+            # Get best candidates to new data
+            candidates = self.__get_best_candidates(row)
+            # Make the prediction
+            y_predict.append(candidates.mean() if self.task == 'r' else self.agg_weights(candidates))
+        return new_data.assign(y_predict=y_predict)
 
 def buy_candles(df):
     return np.where((df['close'] < df['close'].shift(-5)) & (df['close'].shift(-5) >= (df['close'] + 2 * (df['close'] - df['open']))), 1, 0)
