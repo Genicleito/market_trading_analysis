@@ -357,6 +357,11 @@ class WKNN:
         self.task = task
         
     def agg_weights(self, w_candidates):
+        w_candidates['weights'] = np.where(
+            w_candidates['weights'] == float('inf'),
+            w_candidates['weights'][w_candidates['weights'] != float('inf')].max() * 10,
+            w_candidates['weights']
+        )
         scores = w_candidates.groupby('labels').sum().reset_index()
         # id of the max score
         max_score_indice = scores['weights'].idxmax()
