@@ -13,14 +13,15 @@ import math
 import urllib3
 # http://www.b3.com.br/pt_br/market-data-e-indices/servicos-de-dados/market-data/cotacoes/cotacoes/
 
+_INTERVAL_DAYS = 1
 today = datetime.datetime.today()
 limit_time = 1730
 ncores = os.cpu_count()
 http = urllib3.PoolManager()
-yahoo_api_path = 'https://query1.finance.yahoo.com/v7/finance/download/'
-now = lambda: datetime.datetime.now()
-default_yahoo_df_columns = ['date', 'ticker', 'open', 'high', 'low', 'close', 'adj_close', 'volume']
+_YAHOO_API_URL = 'https://query1.finance.yahoo.com/v7/finance/download/'
+_TIMESERIE_DF_COLUMNS = ['date', 'ticker', 'open', 'high', 'low', 'close', 'adj_close', 'volume']
 _PERIODS_EMA = [8, 20, 72, 200]
+_NOW = lambda: datetime.datetime.now()
 _DEBUG = True
 
 _PERIOD1 = 946695600 # 2000-01-01
@@ -35,14 +36,14 @@ def updated_period2_to_now():
     now = datetime.datetime.today()
     return int(datetime.datetime(year=now.year, month=now.month, day=now.day, hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond).timestamp())
 
-main_codes = [
-    'CEAB3', 'OIBR3', 'EMBR3', 'VALE3', 'GOLL4', 'COGN3', 'IRBR3', 'ABEV3', 'BBDC4', 'VULC3', 'SUZB3', 'ALSO3', 'AZUL4', 'QUAL3', 'SEER3',
-    'DMMO3', 'BMGB4', 'ECOR3', 'TOTS3', 'LLIS3', 'ITUB4', 'LREN3', 'GGBR4', 'USIM5', 'MRFG3', 'RENT3', 'MOVI3', 'VIVA3', 'ARZZ3', 'ETER3',
-    'BRKM5', 'BKBR3', 'PFRM3', 'SOMA3', 'ABCB4', 'AMAR3', 'ANIM3', 'BPAN4', 'BRPR3', 'PETR4', 'SAPR3', 'MEAL3', 'TEND3', 'CIEL3', 'MILS3',
-    'CCRO3', 'BEEF3', 'MGLU3', 'BIDI4', 'BBAS3', 'WEGE3', 'CYRE3', 'JHSF3', 'KLBN11', 'SHOW3', 'MRVE3', 'CSAN3', 'NTCO3', 'LAME4', 'MDNE3',
-    'SAPR11', 'JBSS3', 'BRFS3', 'BRML3', 'CSNA3', 'ELET3', 'CMIG4', 'PDGR3', 'LPSB3', 'PRNR3', 'EZTC3', 'BRDT3', 'ENAT3', 'DMVF3', 'GUAR3',
+_CODES = [
+    'CEAB3', 'OIBR3', 'EMBR3', 'VALE3', 'GOLL4', 'COGN3', 'IRBR3', 'ABEV3', 'AZUL4', 'VULC3', 'SUZB3', 'ALSO3', 'QUAL3', 'CXSE3',
+    'BMGB4', 'ECOR3', 'TOTS3', 'ITUB4', 'LREN3', 'GGBR4', 'USIM5', 'MRFG3', 'RENT3', 'MOVI3', 'VIVA3', 'ARZZ3', 'ETER3', 'PCAR3',
+    'BRKM5', 'PFRM3', 'SOMA3', 'ABCB4', 'AMAR3', 'ANIM3', 'BPAN4', 'BRPR3', 'PETR4', 'SAPR3', 'MEAL3', 'TEND3', 'CIEL3', 'MILS3',
+    'CCRO3', 'BEEF3', 'MGLU3', 'BBAS3', 'WEGE3', 'CYRE3', 'JHSF3', 'KLBN11', 'SHOW3', 'MRVE3', 'CSAN3', 'NTCO3', 'MDNE3',
+    'SAPR11', 'JBSS3', 'BRFS3', 'CSNA3', 'ELET3', 'CMIG4', 'PDGR3', 'LPSB3', 'PRNR3', 'EZTC3', 'ENAT3', 'DMVF3', 'GUAR3',
     'SBSP3', 'RANI3', 'LWSA3', 'SAPR4', 'CAML3', 'GRND3', 'AGRO3', 'CRFB3', 'LAVV3', 'PGMN3', 'SMTO3', 'MYPK3', 'POMO4', 'STBP3', 'PETZ3',
-    'ITSA4', 'PTBL3', 'ENJU3', 'AERI3', 'GMAT3', 'CRFB3', 'RAPT4', 'CXSE3', 'VIIA3'
+    'ITSA4', 'PTBL3', 'ENJU3', 'AERI3', 'GMAT3', 'CRFB3', 'RAPT4', 'CXSE3', 'BHIA3', 'ITSA4', 'VBBR3'
 ]
 
 another_codes = [
@@ -175,7 +176,7 @@ def candle_type(df):
     # Alterar para fazer isso para todo candle
     tmp = df.sort_values(by=['date'])
     tickers = tmp['ticker'].unique()
-    d = pd.DataFrame()
+    d = [] # pd.DataFrame()
     list_func = [is_bearish_harami, is_bullish_harami, is_engulfing_bullish, is_engulfing_bearish, is_piercing, is_evening_star, is_morning_star, is_high_soldiers, is_down_soldiers, is_hammer]
     for ticker in tickers:
         candle = tmp[tmp['ticker'] == ticker].tail(5)
@@ -189,10 +190,10 @@ def candle_type(df):
         for f in list_func:
             r = f(x, y, z)
             if r:
-                d = d.append(pd.DataFrame({'date': [dt], 'ticker': [ticker], 'candle_type': [f"{r['ind_trend']}: {r['candle_type']}"]}), ignore_index=True)
+                d.append(pd.DataFrame({'date': [dt], 'ticker': [ticker], 'candle_type': [f"{r['ind_trend']}: {r['candle_type']}"]}))
                 # only the first
                 break
-    return df.merge(d, on=['date', 'ticker'], how='left') if d.shape[0] > 0 else df.assign(candle_type=None)
+    return df.merge(pd.concat(d, ignore_index=True), on=['date', 'ticker'], how='left') if d.shape[0] > 0 else df.assign(candle_type=None)
 
 ### end candle types ###
 
@@ -277,11 +278,14 @@ def series_to_supervised(df, n_prev=1, n_later=0, cols_fut=None, dropna=True, pa
             dfs[i_df] = dfs[i_df].assign(**{
                 f'{x}_t+{j+1}': dfs[i_df][x].shift(-(j+1)) for x in cols_fut.keys() for j in range(cols_fut[x])
             })
-        df_result = df_result.append(
-            pd.concat(dfs, axis=1).dropna() if dropna else pd.concat(dfs, axis=1),
-            ignore_index=True
-        )
-    return df_result
+        # df_result = df_result.append(
+        #     pd.concat(dfs, axis=1).dropna() if dropna else pd.concat(dfs, axis=1),
+        #     ignore_index=True
+        # )
+        df_result.append(pd.concat(dfs, axis=1).dropna() if dropna else pd.concat(dfs, axis=1))
+
+    # return df_result
+    return pd.concat(df_result, ignore_index=True)
 
 def split_random_train_test(df, tain_frac=0.7, drop_test_columns=None, debug=True):
     train = df.sample(frac=0.7)
@@ -694,7 +698,7 @@ def create_yahoo_download_query(code, period1=946695600, period2=None, interval_
     now = datetime.datetime.today()
     if not period2: period2 = int(datetime.datetime(year=now.year, month=now.month, day=now.day, hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond).timestamp())
     # if _DEBUG: print(f'Period1: {datetime.datetime.fromtimestamp(period1)} | Period2: {datetime.datetime.fromtimestamp(period2)}')
-    return f'{yahoo_api_path}{code}.SA?period1={period1}&period2={period2}&interval={str(interval_days)}d&events={events}'
+    return f'{_YAHOO_API_URL}{code}.SA?period1={period1}&period2={period2}&interval={str(interval_days)}d&events={events}'
 
 def get_yahoo_finance(code, interval_days=1, period1=946695600, period2=None, events='history', ttl=3):
     df = pd.DataFrame()
@@ -705,15 +709,15 @@ def get_yahoo_finance(code, interval_days=1, period1=946695600, period2=None, ev
         url = create_yahoo_download_query(code=ticker, period1=period1, period2=period2, interval_days=interval_days, events=events)
         try:
             tmp = pd.read_csv(url).assign(ticker=ticker)
-            tmp = tmp.rename(columns={x: x.lower().replace(' ', '_') for x in tmp.columns})[default_yahoo_df_columns]
+            tmp = tmp.rename(columns={x: x.lower().replace(' ', '_') for x in tmp.columns})[_TIMESERIE_DF_COLUMNS]
             tmp = tmp[tmp != 'null'].dropna()
-            for col in default_yahoo_df_columns:
+            for col in _TIMESERIE_DF_COLUMNS:
                 tmp[col] = tmp[col].astype(float, errors='ignore')
             df = df.append(tmp, ignore_index=True)
             success.append(ticker)
         except Exception as exp:
             errors.append(ticker)
-            print(f'{now()} [{ticker}] Error: {exp}')
+            print(f'{_NOW()} [{ticker}] Error: {exp}')
     # print(f'Downloads - Success: {count_success} | Error {count_error}')
     return df
 
@@ -724,7 +728,7 @@ def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=Tru
     hist = pd.DataFrame()
     print(f"Baixando dados para os últimos {qtd_days if qtd_days else '<todo o período>'} dias...")
     if hist_path and os.path.exists(hist_path): 
-        hist = pd.read_csv(hist_path)[default_yahoo_df_columns]
+        hist = pd.read_csv(hist_path)[_TIMESERIE_DF_COLUMNS]
     if qtd_days: period1 = int((datetime.datetime(year=now.year, month=now.month, day=now.day, hour=1) - datetime.timedelta(days=qtd_days)).timestamp())
 
     for ticker in tqdm(codes):
