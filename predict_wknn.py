@@ -15,7 +15,25 @@ from lib.technical_analysis import (
 
 
 
+################### Criação de Funções
 
+def calc_erro(df, columns, n_folds=10):
+    erros = []
+    tmp = df[df['y'].notna()]
+    for k in range(n_folds):
+        train = tmp.sample(frac=0.7)[columns + ['y']]
+        test = tmp.drop(train.index)[columns + ['y']]
+
+        if k == n_folds - 1: print(f"\tcalc_erro() | K = {k + 1}/{n_folds} | Train: {train.shape[0]} | Test: {test.shape[0]}")
+        wknn = WKNN(train)
+
+        r = wknn.predict(test, debug=False)[['y', 'y_predict']]
+        r = r.assign(erro=r['y_predict'] - r['y'])
+        erro_medio = np.where(r['erro'].isna(), 0, r['erro']).mean()
+
+        erros.append(erro_medio)
+    print('')
+    return np.array(erros).mean()
 
 
 ################### Criação de indicadores
@@ -41,7 +59,7 @@ df = pd.concat(dfs, ignore_index=True)
 
 
 # Definição de constantes
-n_prev = 15 # 60
+n_prev = 60 # 60
 rolling_window_max_close = 15
 if datetime.datetime.now(tz=pytz.timezone('America/Sao_Paulo')).hour < 16:
     # Caso seja menos de 16 horas são considerados os dados do dia anterior
@@ -82,7 +100,7 @@ for t, ticker in enumerate(df['ticker'].unique()):
 
     # TODO ajustar período que deve ser considerado para treinamento
     # Mantém apenas os utimos registros ordenados por data
-    df_supervised = df_supervised.sort_values('date').tail(n_prev * 4)
+    df_supervised = df_supervised.sort_values('date').tail(n_prev)
 
     # Obtém o valor máximo nos próximos X rolling_window_max_close
     # df_supervised[f'max_close_{rolling_window_max_close}_days'] = df_supervised.sort_values(
