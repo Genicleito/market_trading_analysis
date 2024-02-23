@@ -758,8 +758,8 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
         df_recom['volume_ema20'] = df_recom['volume_ema20'].round(2)
         df_recom = df_recom.drop(['high', 'low', 'adj_close', 'volume'], axis=1).sort_values(by=['ticker'])
         df_recom = df_recom[df_recom['ticker'].isin(_CODES)].sort_values(by=['date'], ascending=False).append(df_recom[~df_recom['ticker'].isin(_CODES)], ignore_index=True)
-        df_recom.to_html(f'reports/yfinance/recommendations_yfinance.html', index=False)
-        df_recom.to_csv('data/recommendations_yfinance.csv.zip', index=False, compression='zip')
+        # df_recom.to_html(f'reports/yfinance/recommendations_yfinance.html', index=False)
+        # df_recom.to_csv('data/recommendations_yfinance.csv.zip', index=False, compression='zip')
 
         df = df.assign(
             **{
@@ -778,9 +778,8 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
             tmp = tmp[tmp['ticker'].isin(_CODES)]
             print("Filtro por códigos principais:", tmp.shape)
         tmp = tmp[tmp['ticker'].isin(_CODES)].sort_values(by=['close']).reset_index(drop=True)
-        tmp.to_html(f'reports/recommendations_yfinance_today.html')#, index=False)
-        print(f'Recommendations saved in: recommendations_yfinance.html')
-        # to return
+        # tmp.to_html(f'reports/recommendations_yfinance_today.html')#, index=False)
+        # print(f'Recommendations saved in: recommendations_yfinance.html')
         df_recom = tmp[tmp['buy'] == 1][['date', 'ticker', 'close']]
     if not df.empty and (hist.empty or hist[pd.to_datetime(hist['date']).dt.date == (today - datetime.timedelta(1)).date()].shape[0] == 0):
         if not hist.empty: print(hist['date'].max())
