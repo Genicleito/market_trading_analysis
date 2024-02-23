@@ -1,4 +1,3 @@
-from multiprocessing.dummy import Pool as ThreadPool
 import sklearn
 import matplotlib.pyplot as plt
 import requests, json, datetime, math
@@ -30,6 +29,7 @@ _PERIOD2 = int(datetime.datetime(year=today.year, month=today.month, day=today.d
 _hist_path = 'hist_market_trading_yfinance.csv.zip'
 
 def create_pool():
+    from multiprocessing.dummy import Pool as ThreadPool
     return ThreadPool(max(ncores//2), 1)
 
 def updated_period2_to_now():
