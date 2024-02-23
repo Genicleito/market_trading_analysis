@@ -721,8 +721,8 @@ def get_yahoo_finance(code, interval_days=1, period1=946695600, period2=None, ev
     # print(f'Downloads - Success: {count_success} | Error {count_error}')
     return df
 
-def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=True, tickers=set(_CODES + another_codes), norm_rec=False, interval_days=1, period1=946695600, period2=None, qtd_days=None, plot_risk_and_return=False, risk_return_period=365):
-    codes = [x for x in tickers if not x.endswith('F')]
+def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, get_recom=True, tickers=set(_CODES + another_codes), norm_rec=False, interval_days=1, period1=946695600, period2=None, qtd_days=None, plot_risk_and_return=False, risk_return_period=365):
+    codes = [x for x in tickers if not x.endswith('F')] if not ticker else [ticker]
     now = datetime.datetime.today()
     df = pd.DataFrame()
     hist = pd.DataFrame()
@@ -731,18 +731,18 @@ def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=Tru
         hist = pd.read_csv(hist_path)[_TIMESERIE_DF_COLUMNS]
     if qtd_days: period1 = int((datetime.datetime(year=now.year, month=now.month, day=now.day, hour=1) - datetime.timedelta(days=qtd_days)).timestamp())
 
-    for ticker in tqdm(codes):
-        tmp = get_yahoo_finance(code=ticker, interval_days=interval_days, period1=period1, period2=period2)
+    for ticker_code in tqdm(codes):
+        tmp = get_yahoo_finance(code=ticker_code, interval_days=interval_days, period1=period1, period2=period2)
         if tmp.shape[0] > 1:
             tmp = tmp.rename(columns={'code': 'ticker'})
-            if qtd_days and os.path.exists(hist_path): tmp = tmp.append(hist[list(tmp.columns)][hist['ticker'] == ticker], ignore_index=True).drop_duplicates(subset=['date', 'ticker'])
+            if qtd_days and os.path.exists(hist_path): tmp = tmp.append(hist[list(tmp.columns)][hist['ticker'] == ticker_code], ignore_index=True).drop_duplicates(subset=['date', 'ticker'])
             tmp = create_ema(tmp.drop_duplicates(['date', 'ticker']))
             tmp = flag_volume(tmp)
             tmp['macd'] = macd(fast_ma=tmp['close_ema8'], slow_ma=tmp['close_ema20']).round(2)
             tmp['macd_signal'] = ema(serie=tmp['macd'], period=8)
             tmp = get_signals(tmp)
             if write_path and not qtd_days:
-                tmp.to_csv(f"{write_path + ticker}.csv.zip", index=False, compression='zip')
+                tmp.to_csv(f"{write_path + ticker_code}.csv.zip", index=False, compression='zip')
             df = df.append(tmp, ignore_index=True)
     # # get and plot risk and return of main tickers codes
     # get_return_rate_and_risk(df[df['ticker'].isin(_CODES)], plot_risk_and_return=plot_risk_and_return, risk_return_period=risk_return_period)
