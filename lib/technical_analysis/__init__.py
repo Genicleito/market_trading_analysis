@@ -772,6 +772,7 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
         )
         
         tmp = df_recom[df_recom['date'].dt.date == min(today.date(), df['date'].max())]
+        display.display(tmp)
         if tmp.shape[0] == 0:
             tmp = candle_trend(df[df['date'].dt.date == min(today.date(), df['date'].max())])[['date', 'ticker', 'close', 'candle_trend']] #, 'candle_type']]
             print("Filtro por data atual:", tmp.shape)
