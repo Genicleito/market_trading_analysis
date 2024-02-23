@@ -4,7 +4,7 @@ import requests, json, datetime, math
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from IPython import display
+# from IPython import display
 import logging
 import time
 import os
@@ -746,7 +746,7 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
             df = df.append(tmp, ignore_index=True)
     # # get and plot risk and return of main tickers codes
     # get_return_rate_and_risk(df[df['ticker'].isin(_CODES)], plot_risk_and_return=plot_risk_and_return, risk_return_period=risk_return_period)
-    display.display(df)
+
     # get recommendations
     df_recom = pd.DataFrame()
     if get_recom and not df.empty:
@@ -772,7 +772,7 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
         )
         
         tmp = df_recom[df_recom['date'].dt.date == min(today.date(), df['date'].max())]
-        display.display(tmp)
+
         if tmp.shape[0] == 0:
             tmp = candle_trend(df[df['date'].dt.date == min(today.date(), df['date'].max())])[['date', 'buy', 'ticker', 'close', 'candle_trend']] #, 'candle_type']]
             print("Filtro por data atual:", tmp.shape)
