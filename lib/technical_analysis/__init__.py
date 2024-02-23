@@ -58,10 +58,10 @@ another_codes = [
 ]
 
 def get_main_codes():
-    return main_codes
+    return _CODES
 
 def get_all_tickers():
-    return main_codes + list(set(another_codes) - set(main_codes))
+    return _CODES + list(set(another_codes) - set(_CODES))
 
 def is_bullish_candle(candle):
     return candle['close'] > candle['open']
@@ -481,7 +481,7 @@ def get_stock_prices(tickers=None, old_hist=pd.DataFrame(), days=0, start_date=N
 
     t_s = datetime.datetime.now()
     es_time = None
-    codes_ = list(tickers) if tickers else main_codes[:]
+    codes_ = list(tickers) if tickers else _CODES[:]
     for code in codes_:
         if not start_date: start_date = (datetime.datetime.today()-datetime.timedelta(days=days))
         tmp = old_hist[old_hist['ticker'] == code]['date'] if not old_hist.empty else pd.DataFrame()
@@ -721,7 +721,7 @@ def get_yahoo_finance(code, interval_days=1, period1=946695600, period2=None, ev
     # print(f'Downloads - Success: {count_success} | Error {count_error}')
     return df
 
-def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=True, tickers=set(main_codes + another_codes), norm_rec=False, interval_days=1, period1=946695600, period2=None, qtd_days=None, plot_risk_and_return=False, risk_return_period=365):
+def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=True, tickers=set(_CODES + another_codes), norm_rec=False, interval_days=1, period1=946695600, period2=None, qtd_days=None, plot_risk_and_return=False, risk_return_period=365):
     codes = [x for x in tickers if not x.endswith('F')]
     now = datetime.datetime.today()
     df = pd.DataFrame()
@@ -745,7 +745,7 @@ def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=Tru
                 tmp.to_csv(f"{write_path + ticker}.csv.zip", index=False, compression='zip')
             df = df.append(tmp, ignore_index=True)
     # # get and plot risk and return of main tickers codes
-    # get_return_rate_and_risk(df[df['ticker'].isin(main_codes)], plot_risk_and_return=plot_risk_and_return, risk_return_period=risk_return_period)
+    # get_return_rate_and_risk(df[df['ticker'].isin(_CODES)], plot_risk_and_return=plot_risk_and_return, risk_return_period=risk_return_period)
 
     # get recommendations
     df_recom = pd.DataFrame()
@@ -757,16 +757,27 @@ def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=Tru
         if norm_rec: df_recom = normalize_recommendations(df_recom).query(query)
         df_recom['volume_ema20'] = df_recom['volume_ema20'].round(2)
         df_recom = df_recom.drop(['high', 'low', 'adj_close', 'volume'], axis=1).sort_values(by=['ticker'])
-        df_recom = df_recom[df_recom['ticker'].isin(main_codes)].sort_values(by=['date'], ascending=False).append(df_recom[~df_recom['ticker'].isin(main_codes)], ignore_index=True)
+        df_recom = df_recom[df_recom['ticker'].isin(_CODES)].sort_values(by=['date'], ascending=False).append(df_recom[~df_recom['ticker'].isin(_CODES)], ignore_index=True)
         df_recom.to_html(f'reports/yfinance/recommendations_yfinance.html', index=False)
         df_recom.to_csv('data/recommendations_yfinance.csv.zip', index=False, compression='zip')
+
+        df = df.assign(
+            **{
+                'candle_crossing_ema20': candle_crossing_ema(df, period=20),
+                'crossing_8ema_x_20ema': np.where((df['close_ema8'] >= df['close_ema20']) & (df['close_ema8'].shift(1) < df['close_ema20'].shift(1)), 1, 0),
+                'crossing_8ema_x_72ema': np.where((df['close_ema8'] >= df['close_ema72']) & (df['close_ema8'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
+                'crossing_20ema_x_72ema': np.where((df['close_ema20'] >= df['close_ema72']) & (df['close_ema20'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
+                'trend_tomorrow': np.where((df['close'].shift(-1).notna()) & (df['close'] < df['close'].shift(-1)), 1, 0)
+            }
+        )
+        
         tmp = df_recom[df_recom['date'].dt.date == min(today.date(), df['date'].max())]
         if tmp.shape[0] == 0:
             tmp = candle_trend(df[df['date'].dt.date == min(today.date(), df['date'].max())])[['date', 'ticker', 'candle_trend']] #, 'candle_type']]
             print("Filtro por data atual:", tmp.shape)
-            tmp = tmp[tmp['ticker'].isin(main_codes)]
+            tmp = tmp[tmp['ticker'].isin(_CODES)]
             print("Filtro por códigos principais:", tmp.shape)
-        tmp = tmp[tmp['ticker'].isin(main_codes)].sort_values(by=['close']).reset_index(drop=True)
+        tmp = tmp[tmp['ticker'].isin(_CODES)].sort_values(by=['close']).reset_index(drop=True)
         tmp.to_html(f'reports/recommendations_yfinance_today.html')#, index=False)
         print(f'Recommendations saved in: recommendations_yfinance.html')
         # to return
@@ -778,7 +789,7 @@ def daily_analysis_yfinance(write_path=None, hist_path=_hist_path, get_recom=Tru
         tmp_hist.to_csv(hist_path, index=False)
     return df, df_recom
 
-def get_and_agg_stock_prices(write_path=None, by=['d'], tickers=set(main_codes + another_codes), days=0, start_date=None, source='b3'):
+def get_and_agg_stock_prices(write_path=None, by=['d'], tickers=set(_CODES + another_codes), days=0, start_date=None, source='b3'):
     dfs = {'m': pd.DataFrame(), 'h': pd.DataFrame(), 'd': pd.DataFrame()}
     # tmp = []
     # l_ = pool.map(get_stock_prices, tickers)
