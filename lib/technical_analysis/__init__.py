@@ -781,7 +781,7 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
         tmp = tmp[tmp['ticker'].isin(_CODES)].sort_values(by=['close']).reset_index(drop=True)
         # tmp.to_html(f'reports/recommendations_yfinance_today.html')#, index=False)
         # print(f'Recommendations saved in: recommendations_yfinance.html')
-        df_recom = tmp[tmp['buy'] == 1][['date', 'ticker', 'close']]
+        df_recom = tmp[tmp['buy'] == 1][['date', 'ticker', 'close', 'buy']]
     if not df.empty and (hist.empty or hist[pd.to_datetime(hist['date']).dt.date == (today - datetime.timedelta(1)).date()].shape[0] == 0):
         if not hist.empty: print(hist['date'].max())
         tmp_hist = df[df['date'] != today.date()].sort_values(['ticker', 'date'])
