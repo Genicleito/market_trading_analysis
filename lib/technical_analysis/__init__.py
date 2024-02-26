@@ -727,15 +727,15 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
     df = pd.DataFrame()
     hist = pd.DataFrame()
     print(f"Baixando dados para os últimos {qtd_days if qtd_days else '<todo o período>'} dias...")
-    if hist_path and os.path.exists(hist_path): 
-        hist = pd.read_csv(hist_path)[_TIMESERIE_DF_COLUMNS]
+    # if hist_path and os.path.exists(hist_path): 
+        # hist = pd.read_csv(hist_path)[_TIMESERIE_DF_COLUMNS]
     if qtd_days: period1 = int((datetime.datetime(year=now.year, month=now.month, day=now.day, hour=1) - datetime.timedelta(days=qtd_days)).timestamp())
 
     for ticker_code in tqdm(codes):
         tmp = get_yahoo_finance(code=ticker_code, interval_days=interval_days, period1=period1, period2=period2)
         if tmp.shape[0] > 1:
             tmp = tmp.rename(columns={'code': 'ticker'})
-            if qtd_days and os.path.exists(hist_path): tmp = tmp.append(hist[list(tmp.columns)][hist['ticker'] == ticker_code], ignore_index=True).drop_duplicates(subset=['date', 'ticker'])
+            if qtd_days and hist.shape[0] > 0: tmp = tmp.append(hist[list(tmp.columns)][hist['ticker'] == ticker_code], ignore_index=True).drop_duplicates(subset=['date', 'ticker'])
             tmp = create_ema(tmp.drop_duplicates(['date', 'ticker']))
             tmp = flag_volume(tmp)
             tmp['macd'] = macd(fast_ma=tmp['close_ema8'], slow_ma=tmp['close_ema20']).round(2)
@@ -794,11 +794,12 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
         # tmp.to_html(f'reports/recommendations_yfinance_today.html')#, index=False)
         # print(f'Recommendations saved in: recommendations_yfinance.html')
         df_recom = tmp[tmp['buy'] == 1][['date', 'ticker', 'close', 'buy']]
-    if not df.empty and (hist.empty or hist[pd.to_datetime(hist['date']).dt.date == (today - datetime.timedelta(1)).date()].shape[0] == 0):
-        if not hist.empty: print(hist['date'].max())
-        tmp_hist = df[df['date'] != today.date()].sort_values(['ticker', 'date'])
-        print(f'A data {(today - datetime.timedelta(1)).date()} não está na base\nEscrevendo em {hist_path} sem a data {today.date()}: {tmp_hist.shape}')
-        tmp_hist.to_csv(hist_path, index=False)
+    # if not df.empty and (hist.empty or hist[pd.to_datetime(hist['date']).dt.date == (today - datetime.timedelta(1)).date()].shape[0] == 0):
+        # if not hist.empty: print(hist['date'].max())
+        # tmp_hist = df[df['date'] != today.date()].sort_values(['ticker', 'date'])
+        # print(f'A data {(today - datetime.timedelta(1)).date()} não está na base\nEscrevendo em {hist_path} sem a data {today.date()}: {tmp_hist.shape}')
+        # tmp_hist.to_csv(hist_path, index=False)
+    if hist_path: df[df['date'] != today.date()].sort_values(['date', 'ticker'], ascending=[False, True]).to_csv(hist_path, index=False)
     return df, df_recom
 
 def get_and_agg_stock_prices(write_path=None, by=['d'], tickers=set(_CODES + another_codes), days=0, start_date=None, source='b3'):
