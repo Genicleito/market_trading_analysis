@@ -768,6 +768,8 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
                 'crossing_8ema_x_72ema': np.where((df['close_ema8'] >= df['close_ema72']) & (df['close_ema8'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
                 'crossing_20ema_x_72ema': np.where((df['close_ema20'] >= df['close_ema72']) & (df['close_ema20'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
                 'trend_tomorrow': np.where((df['close'].shift(-1).notna()) & (df['close'] < df['close'].shift(-1)), 1, 0),
+                'candle_lose': df['high'] - df['close'],
+                'candle_gain': df['close'] - df['low'],
                 'volume_to_average': (df['volume'] / df['volume_ema20']),
                 'macd_to_average': (df['macd'] / df['macd_signal']),
                 'candle_length': df['high'] - df['low'],
@@ -779,7 +781,11 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
                 'ema8_over_20': df['close_ema8'] - df['close_ema20'],
                 'ema8_over_72': df['close_ema8'] - df['close_ema72'],
                 'ema20_over_72': df['close_ema20'] - df['close_ema72'],
-                'stop_loss': np.where(df['low'] < df['low'].shift(1).fillna(999999), df['low'], df['low'].shift(1)),
+                'stop_loss_est': np.where(df['low'] < df['low'].shift(1).fillna(999999), df['low'], df['low'].shift(1)),
+                'stop_gain_est': df['close'] + (2 * ( df['close'] - np.where(df['low'] < df['low'].shift(1).fillna(999999), df['low'], df['low'].shift(1)) )), # close + (2 * (close - stop_loss))
+                'prop_gain_8': (df['close'].shift(-8) - df['close']) * df['close'],
+                'prop_gain_20': (df['close'].shift(-20) - df['close']) * df['close'],
+                'prop_gain_72': (df['close'].shift(-72) - df['close']) * df['close'],
             }
         )
         
