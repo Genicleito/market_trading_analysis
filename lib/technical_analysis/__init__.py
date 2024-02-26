@@ -767,7 +767,19 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
                 'crossing_8ema_x_20ema': np.where((df['close_ema8'] >= df['close_ema20']) & (df['close_ema8'].shift(1) < df['close_ema20'].shift(1)), 1, 0),
                 'crossing_8ema_x_72ema': np.where((df['close_ema8'] >= df['close_ema72']) & (df['close_ema8'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
                 'crossing_20ema_x_72ema': np.where((df['close_ema20'] >= df['close_ema72']) & (df['close_ema20'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
-                'trend_tomorrow': np.where((df['close'].shift(-1).notna()) & (df['close'] < df['close'].shift(-1)), 1, 0)
+                'trend_tomorrow': np.where((df['close'].shift(-1).notna()) & (df['close'] < df['close'].shift(-1)), 1, 0),
+                'volume_to_average': (df['volume'] / df['volume_ema20']),
+                'macd_to_average': (df['macd'] / df['macd_signal']),
+                'candle_length': df['high'] - df['low'],
+                'price_var': df['close'] - df['open'],
+                'candle_prop_close': 1 - ((df['high'] - df['low']) / df['close']),
+                'price_prop_close': 1 - ((df['close'] - df['open']) / df['close']),
+                'lower_shadow': (np.where(df['open'] < df['close'], df['open'], df['close']) - df['low']) / (df['high'] - df['low']),
+                'upper_shadow': (df['high'] - np.where(df['open'] > df['close'], df['open'], df['close'])) / (df['high'] - df['low']),
+                'ema8_over_20': df['close_ema8'] - df['close_ema20'],
+                'ema8_over_72': df['close_ema8'] - df['close_ema72'],
+                'ema20_over_72': df['close_ema20'] - df['close_ema72'],
+                'stop_loss': np.where(df['low'] < df['low'].shift(1).fillna(999999), df['low'], df['low'].shift(1)),
             }
         )
         
