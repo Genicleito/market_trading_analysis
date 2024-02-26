@@ -37,21 +37,21 @@ def updated_period2_to_now():
     return int(datetime.datetime(year=now.year, month=now.month, day=now.day, hour=now.hour, minute=now.minute, second=now.second, microsecond=now.microsecond).timestamp())
 
 _CODES = [
-    'CEAB3', 'OIBR3', 'EMBR3', 'VALE3', 'GOLL4', 'COGN3', 'IRBR3', 'ABEV3', 'BBDC4', 'VULC3', 'SUZB3', 'ALSO3', 'AZUL4', 'QUAL3', 'SEER3',
+    'CEAB3', 'OIBR3', 'EMBR3', 'VALE3', 'GOLL4', 'COGN3', 'IRBR3', 'ABEV3', 'BBDC4', 'VULC3', 'SUZB3', 'AZUL4', 'QUAL3', 'SEER3',
     'BMGB4', 'ECOR3', 'TOTS3', 'ITUB4', 'LREN3', 'GGBR4', 'USIM5', 'MRFG3', 'RENT3', 'MOVI3', 'VIVA3', 'ARZZ3', 'ETER3',
     'BRKM5', 'PFRM3', 'SOMA3', 'ABCB4', 'AMAR3', 'ANIM3', 'BPAN4', 'BRPR3', 'PETR4', 'SAPR3', 'MEAL3', 'TEND3', 'CIEL3', 'MILS3',
-    'CCRO3', 'BEEF3', 'MGLU3', 'BIDI4', 'BBAS3', 'WEGE3', 'CYRE3', 'JHSF3', 'KLBN11', 'SHOW3', 'MRVE3', 'CSAN3', 'NTCO3', 'MDNE3',
-    'SAPR11', 'JBSS3', 'BRFS3', 'CSNA3', 'ELET3', 'CMIG4', 'PDGR3', 'LPSB3', 'PRNR3', 'EZTC3', 'BRDT3', 'ENAT3', 'DMVF3', 'GUAR3',
+    'CCRO3', 'BEEF3', 'MGLU3', 'BBAS3', 'WEGE3', 'CYRE3', 'JHSF3', 'KLBN11', 'SHOW3', 'MRVE3', 'CSAN3', 'NTCO3', 'MDNE3',
+    'SAPR11', 'JBSS3', 'BRFS3', 'CSNA3', 'ELET3', 'CMIG4', 'PDGR3', 'LPSB3', 'PRNR3', 'EZTC3', 'ENAT3', 'DMVF3', 'GUAR3',
     'SBSP3', 'RANI3', 'LWSA3', 'SAPR4', 'CAML3', 'GRND3', 'AGRO3', 'CRFB3', 'LAVV3', 'PGMN3', 'SMTO3', 'MYPK3', 'POMO4', 'STBP3', 'PETZ3',
     'ITSA4', 'PTBL3', 'ENJU3', 'AERI3', 'GMAT3', 'CRFB3', 'RAPT4', 'CXSE3', 'BHIA3'
 ]
 
 another_codes = [
     'CIEL3', 'ENAT3', 'MMXM11', 'SHOW3', 'GUAR3', 'BPAN4', 'MYPK3', 'ARZZ3', 'VULC3', 'ESTR4', 'LWSA3', 'EZTC3', 'BBAS3', 'VIVA3', 'BMGB4',
-    'BRFS3', 'TOTS3', 'POMO4', 'MRVE3', 'MDIA3', 'PDGR3', 'BRCO11', 'SAPR3', 'SEER3', 'PETZ3', 'LAVV3', 'CAML3', 'ABCB4', 'LLIS3',
+    'BRFS3', 'TOTS3', 'POMO4', 'MRVE3', 'MDIA3', 'PDGR3', 'BRCO11', 'SAPR3', 'SEER3', 'PETZ3', 'LAVV3', 'CAML3', 'ABCB4',
     'IRBR3', 'SLBG34', 'STBP3', 'SMTO3', 'ITSA4', 'RENT3', 'CEAB3', 'VALE3', 'ELET3', 'MGLU3', 'GOLL4', 'MEAL3', 'UGPA3', 'ANIM3',
     'SBSP3', 'CSNA3', 'DMVF3', 'OIBR3', 'BRKM5', 'CRFB3', 'PTBL3', 'EMBR3', 'JHSF3', 'CYRE3', 'QUAL3', 'SUZB3', 'AGRO3', 'SAPR4',
-    'ECOR3', 'GRND3', 'ETER3', 'SOMA3', 'USIM5', 'BKBR3', 'ITUB4', 'COGN3', 'VIFI11', 'DMMO3', 'TRNT11', 'CMIG4', 'CSAN3',
+    'ECOR3', 'GRND3', 'ETER3', 'SOMA3', 'USIM5', 'ITUB4', 'COGN3', 'VIFI11', 'TRNT11', 'CMIG4', 'CSAN3',
     'PETR4', 'PLPL3', 'RAPT4', 'SANB3', 'NTCO3', 'LREN3', 'JBSS3', 'AMAR3', 'GGBR4', 'MILS3', 'PRNR3', 'RANI3', 'PFRM3',
     'MDNE3', 'UNIP3', 'KLBN11', 'BRPR3', 'BBVJ11', 'MOVI3', 'SAPR11', 'ABEV3', 'BEEF3', 'GFSA3', 'WEGE3', 'MRFG3', 'PGMN3', 'LPSB3', 'BCFF11',
     'TEND3', 'IGBR3', 'INEP3', 'ENJU3', 'AERI3', 'GMAT3', 'LJQQ3'
