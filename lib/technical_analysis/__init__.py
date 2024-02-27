@@ -567,21 +567,23 @@ def get_candle_variables(df, by='minute', var_date='TradDt', limit_time=1730):
 def ema(serie, period):
     return serie.ewm(span=period, min_periods=period, adjust=False).mean().round(2)
 
-def create_ema(df, periods=None):
-    df_ = pd.DataFrame()
+def create_ema(df, periods=[8, 20, 72, 200]):
+    dfs = []
     tmp = df.copy()
-    if not periods: periods = _PERIODS_EMA
+    if not periods: periods = _PERIODS_EMA[:]
     if not isinstance(periods, list): periods = [periods]
     for code in tmp['ticker'].unique():
         tmp = tmp[tmp['ticker'] == code].sort_values(by=['date'])
         for p in periods:
             # call ema function
-            tmp[f'close_ema{p}'] = tmp['close'].ewm(span=p, min_periods=p, adjust=False).mean().round(2)
+            # tmp[f'close_ema{p}'] = tmp['close'].ewm(span=p, min_periods=p, adjust=False).mean().round(2)
+            tmp[f'close_ema{p}'] = tmp['close'].rolling(window=p).mean().round(2)
             if p == 20:
-                # call ema function
-                tmp[f'volume_ema{p}'] = tmp['volume'].ewm(span=p, min_periods=p, adjust=False).mean().round(0).astype(int, errors='ignore')
-        df_ = df_.append(tmp, ignore_index=True)
-    return df_
+                # EMA volume 20 periods
+                # tmp[f'volume_ema{p}'] = tmp['volume'].ewm(span=p, min_periods=p, adjust=False).mean().round(0).astype(int, errors='ignore')
+                tmp[f'volume_ema{p}'] = tmp['volume'].rolling(window=p).mean().round(0).astype(int, errors='ignore')
+        dfs.append(tmp)
+    return pd.concat(dfs, ignore_index=True)
 
 def get_signals(df):
     """
