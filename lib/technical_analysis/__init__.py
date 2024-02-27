@@ -741,6 +741,18 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
             tmp['macd'] = macd(fast_ma=tmp['close_ema8'], slow_ma=tmp['close_ema20']).round(2)
             tmp['macd_signal'] = ema(serie=tmp['macd'], period=8)
             tmp = get_signals(tmp)
+
+            tmp = tmp.assign(**{
+                'candle_crossing_ema20': candle_crossing_ema(tmp, period=20),
+                'crossing_8ema_x_20ema': np.where((tmp['close_ema8'] >= tmp['close_ema20']) & (tmp['close_ema8'].shift(1) < tmp['close_ema20'].shift(1)), 1, 0),
+                'crossing_8ema_x_72ema': np.where((tmp['close_ema8'] >= tmp['close_ema72']) & (tmp['close_ema8'].shift(1) < tmp['close_ema72'].shift(1)), 1, 0),
+                'crossing_20ema_x_72ema': np.where((tmp['close_ema20'] >= tmp['close_ema72']) & (tmp['close_ema20'].shift(1) < tmp['close_ema72'].shift(1)), 1, 0),
+                'trend_tomorrow': np.where((tmp['close'].shift(-1).notna()) & (tmp['close'] < tmp['close'].shift(-1)), 1, 0),
+                'prop_gain_8': (tmp['close'] - tmp['close'].shift(-8)) / tmp['close'],
+                'prop_gain_20': (tmp['close'] - tmp['close'].shift(-20)) / tmp['close'],
+                'prop_gain_72': (tmp['close'] - tmp['close'].shift(-72)) / tmp['close'],
+            })
+            
             if write_path and not qtd_days:
                 tmp.to_csv(f"{write_path + ticker_code}.csv.zip", index=False, compression='zip')
             df = df.append(tmp, ignore_index=True)
@@ -761,19 +773,15 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
         # df_recom.to_html(f'reports/yfinance/recommendations_yfinance.html', index=False)
         # df_recom.to_csv('data/recommendations_yfinance.csv.zip', index=False, compression='zip')
 
+        # Cria colunas com base nas informações dos candles
         df = df.assign(
             **{
-                'candle_crossing_ema20': candle_crossing_ema(df, period=20),
-                'crossing_8ema_x_20ema': np.where((df['close_ema8'] >= df['close_ema20']) & (df['close_ema8'].shift(1) < df['close_ema20'].shift(1)), 1, 0),
-                'crossing_8ema_x_72ema': np.where((df['close_ema8'] >= df['close_ema72']) & (df['close_ema8'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
-                'crossing_20ema_x_72ema': np.where((df['close_ema20'] >= df['close_ema72']) & (df['close_ema20'].shift(1) < df['close_ema72'].shift(1)), 1, 0),
-                'trend_tomorrow': np.where((df['close'].shift(-1).notna()) & (df['close'] < df['close'].shift(-1)), 1, 0),
-                'candle_lose': df['high'] - df['close'],
-                'candle_gain': df['close'] - df['low'],
                 'volume_to_average': (df['volume'] / df['volume_ema20']),
                 'macd_to_average': (df['macd'] / df['macd_signal']),
+                'candle_lose': df['high'] - df['close'],
+                'candle_gain': df['close'] - df['low'],
                 'candle_length': df['high'] - df['low'],
-                'price_var': df['close'] - df['open'],
+                'candle_body': df['close'] - df['open'],
                 'candle_prop_close': 1 - ((df['high'] - df['low']) / df['close']),
                 'price_prop_close': 1 - ((df['close'] - df['open']) / df['close']),
                 'lower_shadow': (np.where(df['open'] < df['close'], df['open'], df['close']) - df['low']) / (df['high'] - df['low']),
@@ -781,13 +789,16 @@ def daily_analysis_yfinance(ticker=None, write_path=None, hist_path=_hist_path, 
                 'ema8_over_20': df['close_ema8'] - df['close_ema20'],
                 'ema8_over_72': df['close_ema8'] - df['close_ema72'],
                 'ema20_over_72': df['close_ema20'] - df['close_ema72'],
-                'stop_loss_est': np.where(df['low'] < df['low'].shift(1).fillna(999999), df['low'], df['low'].shift(1)),
-                'stop_gain_est': df['close'] + (2 * ( df['close'] - np.where(df['low'] < df['low'].shift(1).fillna(999999), df['low'], df['low'].shift(1)) )), # close + (2 * (close - stop_loss))
-                'prop_gain_8': (df['close'].shift(-8) - df['close']) * df['close'],
-                'prop_gain_20': (df['close'].shift(-20) - df['close']) * df['close'],
-                'prop_gain_72': (df['close'].shift(-72) - df['close']) * df['close'],
             }
         )
+        # Cria coluna(s) que depende(m) das criadas anteriormente
+        df = df.assign(**{
+            'tend_alta_medias': (
+                ((df['ema8_over_20'] > 0) & (df['ema8_over_20'].shift(1) <= 0))
+                    | ((df['ema8_over_72'] > 0) & (df['ema8_over_72'].shift(1) <= 0))
+                    | ((df['ema20_over_72'] > 0) & (df['ema20_over_72'].shift(1) <= 0))
+            )
+        })
         
         tmp = df_recom[df_recom['date'].dt.date == min(today.date(), df['date'].max())]
 
