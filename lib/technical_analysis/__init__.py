@@ -261,7 +261,7 @@ def prepare_dataframe_to_ml(df, split_df=True, col_predict_name='y'):
         test = None
     return {'X': X, 'Y': Y, 'test': test}
 
-def series_to_supervised(df, n_prev=1, n_later=0, cols_fut=None, dropna=True, partition_by=None, sort_by=None, debug=True): # , shift_columns=None
+def series_to_supervised(df, n_prev=1, n_later=0, cols_fut=None, dropna=True, partition_by=None, sort_by='date', debug=True): # , shift_columns=None
     # cols_fut examle: {'<column_name>': <qtd_future_shift>, '<column_name>': <qtd_future_shift>}
     if debug: from tqdm import tqdm
     if n_later != 0: cols_fut = None
@@ -269,7 +269,7 @@ def series_to_supervised(df, n_prev=1, n_later=0, cols_fut=None, dropna=True, pa
     df_result = pd.DataFrame()
     dfs_flt = [df] if not partition_by else [df.query(f'{partition_by} == "{x}"') for x in df[partition_by].unique()]
     for tmp in (dfs_flt if not debug else tqdm(dfs_flt)):
-        if sort_by: tmp.sort_values(by=sort_by)
+        if sort_by: tmp = tmp.sort_values(by=sort_by)
         dfs = [tmp.rename(columns={col: f'{col}_t-{j}' for col in columns}).shift(j) for j in range(1, n_prev + 1)]
         dfs += [tmp]
         dfs += [tmp.rename(columns={col: f'{col}_t+{j+1}' for col in columns}).shift(-(j+1)) for j in range(n_later)]
