@@ -1,0 +1,18 @@
+ticker,segmento,tipo_anbima,valor_atual,dividend_yield,pvp_acima_de_1_valorizado,pebit_anos_retorno_investimento,divida_liquida,preco_teto
+BBSE3,Seguradoras,,33.09,8.67,6.21,7.62,-,47.815000000000005
+PETR4,Exploração. Refino e Distribuição,,36.15,20.27,1.22,2.27,0.62,122.13833333333334
+CSNA3,Siderurgia,,15.63,12.54,1.17,4.55,1.53,32.665
+GGBR4,Siderurgia,,21.21,7.12,0.74,3.09,0.11,25.166666666666668
+ITUB3,Bancos,,29.85,7.98,1.59,7.69,-,39.69666666666667
+BBDC3,Bancos,,12.65,8.00,0.81,15.23,-,16.871666666666666
+ITSA4,Bancos,,10.72,8.26,1.39,7.26,0.04,14.753333333333334
+USIM5,Siderurgia,,9.89,3.32,0.53,-20.78,0.01,5.4799999999999995
+CXSE3,Corretoras de Seguros,,16.04,6.30,3.77,12.27,-0.15,16.84
+KLBN4,Papel e Celulose,,4.56,5.33,2.30,5.70,1.87,4.048333333333334
+TAEE4,Energia Elétrica,,11.86,6.30,1.84,6.64,1.26,12.450000000000001
+SAPR4,Água e Saneamento,,5.10,6.05,0.81,3.43,0.46,5.145
+MXRF11,Papéis,Híbrido,10.31,13.09,1.04,,,22.500000000000004
+HGLG11,Imóveis Industriais e Logísticos,Renda,167.40,8.12,1.06,,,226.66666666666666
+KNRI11,Misto,Renda,164.81,7.44,1.03,,,204.33333333333334
+KNCR11,Papéis,Títulos e Valores Mobiliários,102.06,12.94,1.01,,,220.16666666666669
+XPML11,Shoppings,Renda,117.48,8.63,1.06,,,169.00000000000003
