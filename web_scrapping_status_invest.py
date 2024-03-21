@@ -10,9 +10,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-# https://selenium-python.readthedocs.io/installation.html#drivers
-# Drivers: https://googlechromelabs.github.io/chrome-for-testing/
-# https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.128/win64/chromedriver-win64.zip
+# # https://selenium-python.readthedocs.io/installation.html#drivers
+# # Drivers: https://googlechromelabs.github.io/chrome-for-testing/
+# # https://storage.googleapis.com/chrome-for-testing-public/122.0.6261.128/win64/chromedriver-win64.zip
 
 # # Instalando o driver
 # servico = Service(ChromeDriverManager().install())
@@ -29,9 +29,9 @@ _FUNDOS = [
 ]
 
 _ACOES = [
-    'BBSE3', 'ITUB4', 'CSNA3', 'GGBR4', 'CMIN3', 'BBDC3',
+    'BBSE3', 'ITUB4', 'CSNA3', 'GGBR4', 'CMIG4', 'BBDC3',
     'ITSA4', 'USIM5', 'CXSE3', 'KLBN4', 'TAEE4', 'SAPR4',
-    'PETR4', 'CMIG3',
+    'PETR4', 'CMIG3', 'BBAS3'
 ]
 
 _URL = f"https://statusinvest.com.br"
