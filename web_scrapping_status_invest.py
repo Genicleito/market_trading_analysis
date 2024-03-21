@@ -30,7 +30,7 @@ _FUNDOS = [
 _ACOES = [
 	'BBSE3', 'ITUB4', 'CSNA3', 'GGBR4', 'CMIN3', 'BBDC3',
 	'ITSA4', 'USIM5', 'CXSE3', 'KLBN4', 'TAEE4', 'SAPR4',
-	'PETR4',
+	'PETR4', 'CMIG3',
 ]
 
 _URL = f"https://statusinvest.com.br"
@@ -49,9 +49,17 @@ _XPATHS = {
 			if x in _FUNDOS else '//*[@id="main-2"]/div[2]/div/div[1]/div/div[4]/div/div[1]/strong',
 		'pvp_acima_de_1_valorizado': '//*[@id="main-2"]/div[2]/div[5]/div/div[2]/div/div[1]/strong'
 			if x in _FUNDOS else '//*[@id="indicators-section"]/div[2]/div/div[1]/div/div[4]/div/div/strong',
-		'pebit_anos_retorno_investimento': '//*[@id="indicators-section"]/div[2]/div/div[1]/div/div[8]/div/div/strong'
+		'pl_anos_retorno_investimento': '//*[@id="indicators-section"]/div[2]/div/div[1]/div/div[2]/div/div/strong'
 			if x in _ACOES else None,
 		'divida_liquida': '//*[@id="indicators-section"]/div[2]/div/div[2]/div/div[1]/div/div/strong'
+			if x in _ACOES else None,
+		'patrimonio_liquido': '//*[@id="company-section"]/div[1]/div/div[2]/div[1]/div/div/strong'
+			if x in _ACOES else None,
+		'valor_de_mercado': '//*[@id="company-section"]/div[1]/div/div[2]/div[7]/div/div/strong'
+			if x in _ACOES else None,
+		'roe': '//*[@id="indicators-section"]/div[2]/div/div[4]/div/div[1]/div/div/strong'
+			if x in _ACOES else None,
+		'numero_de_acoes': '//*[@id="company-section"]/div[1]/div/div[2]/div[9]/div/div/strong'
 			if x in _ACOES else None,
 		'amount_dividendos_12meses': '//*[@id="main-2"]/div[2]/div/div[1]/div/div[4]/div/div[2]/div/span[2]'
 			if x in _ACOES else '//*[@id="main-2"]/div[2]/div[1]/div[4]/div/div[2]/div/span[2]'
@@ -65,11 +73,16 @@ indicadores = {
 	"tipo_anbima": [],
 	"valor_atual": [],
 	# "variacao_valor_atual": [],
-	"dividend_yield": [],
-	"pvp_acima_de_1_valorizado": [],
-	"pebit_anos_retorno_investimento": [],
+	"dividend_yield": [], # Percentual pago de dividendos comparado ao valor atual da ação
+	"pvp_acima_de_1_valorizado": [], # P/VP (Preço sobre Valor Patrimonial) indica que as ações podem estar "caras" ou "baratas"
+	"pl_anos_retorno_investimento": [], # PL indica o tempo (em anos) para reaver o valor investido (ideal: menor ou igual a 10)
 	"divida_liquida": [],
-	'preco_teto': [],
+	'patrimonio_liquido': [],
+	'preco_teto': [], # Preço máximo para obter pelo menos 6% de dividendos a.a
+	'pvp_status': [], # Verifica o status do PVP (`<= 1`: barata; `> 1` e `<= 1.5`: levemente_alta; `> 1.5`: alta)
+	'valor_de_mercado': [],
+	'numero_de_acoes': [],
+	'roe': [], # (Retorno sobre o Patrimonio Líquido) Indica quanto a empresa obtém de retorno com os investimentos dos recursos dela (ideal: acima de 10%)
 }
 for ticker in tqdm(_ACOES + _FUNDOS):
 	# Criando url
@@ -106,7 +119,8 @@ for ticker in tqdm(_ACOES + _FUNDOS):
 
 		if _XPATHS[ticker]['dividend_yield']:		
 			indicadores["dividend_yield"].append(
-				navegador.find_element(By.XPATH, _XPATHS[ticker]['dividend_yield']).text.replace(',', '.')
+				float(navegador.find_element(By.XPATH, _XPATHS[ticker]['dividend_yield']).text.replace(',', '.').replace('%', ''))
+					/ 100 # Transforma em proporção
 	    	)
 		else:
 			indicadores["dividend_yield"].append(None)
@@ -118,12 +132,12 @@ for ticker in tqdm(_ACOES + _FUNDOS):
 		else:
 			indicadores["pvp_acima_de_1_valorizado"].append(None)
 	
-		if _XPATHS[ticker]['pebit_anos_retorno_investimento']:		
-			indicadores["pebit_anos_retorno_investimento"].append(
-				navegador.find_element(By.XPATH, _XPATHS[ticker]['pebit_anos_retorno_investimento']).text.replace(',', '.')
+		if _XPATHS[ticker]['pl_anos_retorno_investimento']:		
+			indicadores['pl_anos_retorno_investimento'].append(
+				navegador.find_element(By.XPATH, _XPATHS[ticker]['pl_anos_retorno_investimento']).text.replace(',', '.')
 	    	)
 		else:
-			indicadores["pebit_anos_retorno_investimento"].append(None)
+			indicadores['pl_anos_retorno_investimento'].append(None)
 
 		if _XPATHS[ticker]['divida_liquida']:		
 			indicadores["divida_liquida"].append(
@@ -131,6 +145,35 @@ for ticker in tqdm(_ACOES + _FUNDOS):
 	    	)
 		else:
 			indicadores["divida_liquida"].append(None)
+
+		if _XPATHS[ticker]['patrimonio_liquido']:
+			indicadores["patrimonio_liquido"].append(
+				navegador.find_element(By.XPATH, _XPATHS[ticker]['patrimonio_liquido']).text.replace(',', '.')
+	    	)
+		else:
+			indicadores["patrimonio_liquido"].append(None)
+		
+		if _XPATHS[ticker]['valor_de_mercado']:
+			indicadores["valor_de_mercado"].append(
+				navegador.find_element(By.XPATH, _XPATHS[ticker]['valor_de_mercado']).text.replace(',', '.')
+	    	)
+		else:
+			indicadores["valor_de_mercado"].append(None)
+		
+		if _XPATHS[ticker]['numero_de_acoes']:
+			indicadores["numero_de_acoes"].append(
+				navegador.find_element(By.XPATH, _XPATHS[ticker]['numero_de_acoes']).text.replace(',', '.')
+	    	)
+		else:
+			indicadores["numero_de_acoes"].append(None)
+		
+		if _XPATHS[ticker]['roe']:
+			indicadores["roe"].append(
+				float(navegador.find_element(By.XPATH, _XPATHS[ticker]['roe']).text.replace(',', '.').replace('%', ''))
+					/ 100 # Transforma em proporção
+	    	)
+		else:
+			indicadores["roe"].append(None)
 
 		if _XPATHS[ticker]['amount_dividendos_12meses']:
 			indicadores['preco_teto'].append(
@@ -140,6 +183,16 @@ for ticker in tqdm(_ACOES + _FUNDOS):
 			)
 		else:
 			indicadores['preco_teto'].append(None)
+		
+		if _XPATHS[ticker]['pvp_acima_de_1_valorizado']:
+			status = 'CARO'
+			if float(indicadores["pvp_acima_de_1_valorizado"][-1]) <= 1:
+				status = 'BARATO'
+			elif float(indicadores["pvp_acima_de_1_valorizado"][-1]) <= 1.5:
+				status = 'LEVEMENTE CARO'
+			indicadores['pvp_status'].append(status)
+		else:
+			indicadores['pvp_status'].append(None)
 			
 	except Exception as exc:
 		print(exc)
