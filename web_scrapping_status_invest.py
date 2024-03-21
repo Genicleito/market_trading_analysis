@@ -31,7 +31,7 @@ _FUNDOS = [
 _ACOES = [
     'BBSE3', 'ITUB4', 'CSNA3', 'GGBR4', 'CMIG4', 'BBDC3',
     'ITSA4', 'USIM5', 'CXSE3', 'KLBN4', 'TAEE4', 'SAPR4',
-    'PETR4', 'CMIG3', 'BBAS3'
+    'PETR4', 'BBAS3'
 ]
 
 _URL = f"https://statusinvest.com.br"
