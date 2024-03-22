@@ -123,7 +123,7 @@ for ticker in tqdm(_ACOES + _FUNDOS):
                 round(
                     float(navegador.find_element(By.XPATH, _XPATHS[ticker]['dividend_yield']).text.replace(',', '.').replace('%', ''))
                     / 100, # Transforma em proporção
-                    2
+                    6
                 )
             )
         else:
