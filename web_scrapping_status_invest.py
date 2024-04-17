@@ -24,15 +24,15 @@ servico = webdriver.chrome.service.Service(caminho_chromedriver)
 #Abrindo o navegador
 navegador = webdriver.Chrome(service=servico)
 
-_FUNDOS = [
+_FUNDOS = sorted([
     "MXRF11", "HGLG11", "KNRI11", "KNCR11", "XPML11"
-]
+])
 
-_ACOES = [
+_ACOES = sorted([
     'BBSE3', 'ITUB4', 'CSNA3', 'GGBR4', 'CMIG4', 'BBDC3',
     'ITSA4', 'USIM5', 'CXSE3', 'KLBN4', 'TAEE4', 'SAPR4',
-    'PETR4', 'BBAS3', 'TRPL4',
-]
+    'PETR4', 'BBAS3', 'TRPL4'
+])
 
 _URL = f"https://statusinvest.com.br"
 _PATH_FUNDOS = f"/fundos-imobiliarios"
